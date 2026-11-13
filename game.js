@@ -136,3 +136,21 @@ window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(!bound.incl
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();if(mode==='play')show('pause')});
 document.querySelectorAll('[data-key]').forEach(b=>{const k=b.dataset.key;b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);if(mode==='play'){keys.add(k);input(k)}};b.onpointerup=b.onpointercancel=b.onlostpointercapture=()=>keys.delete(k)});
 $('map').onclick=()=>input('m');$('pause').onclick=()=>input('p');
+function hud(){
+ $('area').textContent=level?'Cueva 0'+level+' · '+Z[level][0]:'Capítulo 00 · Superficie';$('name').textContent=Z[level][1];
+ $('player').textContent=count===2?'Jugador '+(turn+1)+' de 2':'Expedición individual';
+ $('hearts').setAttribute('aria-label',p.hp/2+' de 8 corazones');
+ $('hearts').innerHTML=Array.from({length:8},(_,i)=>'<span class="heart" aria-hidden="true">♥<i style="width:'+clamp((p.hp-i*2)*50,0,100)+'%">♥</i></span>').join('');
+ $('lives').textContent='Vidas: '+p.lives+' / 3';$('score').textContent=p.score+' puntos';$('rank').textContent='Héroe nivel '+(1+Math.floor(p.xp/80))+' · '+p.xp+' XP';$('xp').style.width=(p.xp%80/80*100)+'%';
+ $('armor').textContent='Armadura: '+(p.armor?ELEM[p.armor]:'ninguna')+(p.key?' · Llave obtenida':'');
+ const stamp=p.weapons.join()+':'+p.weapon+'|'+p.armors.join()+':'+p.armor;
+ if($('weapons').dataset.stamp!==stamp){
+  $('weapons').dataset.stamp=stamp;
+  for(const [id,list,equipped,kind] of [['weapons',p.weapons,p.weapon,'weapon'],['armorList',p.armors,p.armor,'armor']]){
+   const box=$(id);box.replaceChildren();[...list].sort().forEach(el=>{const b=document.createElement('button');b.textContent=ELEM[el];b.className=el===equipped?'on':'';b.setAttribute('aria-pressed',el===equipped);b.onclick=()=>{if(mode==='play')p[kind]=el};box.append(b)});
+  }
+ }
+ mission=!level?(!opened?'Busca el cofre al este del campamento.':'Ve a la entrada de la cueva, al noreste.'):bossAlive()?'Derrota al guardián de '+Z[level][0]+'.':level<4?'Entra por el portal del noreste.':p.key?'Abre la jaula al noreste.':'Recoge la llave dorada.';
+ near=!level&&!opened&&dist(p,chest)<67?'E · Abrir cofre':dist(p,door)<68?'E · '+(!level?'Entrar a la cueva':level===4?'Abrir jaula':'Descender'):'';
+ $('mission').textContent=mission;$('hint').textContent=near||(time<toastAt&&toast?toast:level&&bossAlive()?'Debilidad: '+ELEM[WEAK[level]]:'');
+}
