@@ -18,6 +18,13 @@ const ROCKS=[
  [[313,205,67],[450,505,58],[624,360,57],[763,163,43],[825,605,68],[1008,548,45]]
 ];
 const HAZ=[[],[[505,289,64,45],[809,527,77,50]],[[382,277,56,43],[716,380,75,53]],[[402,231,57,45],[799,418,63,48]],[[485,284,57,47],[886,397,61,51]]];
+// plan.md: la superficie es independiente y las cuevas ocupan los índices 0–3.
+const niveles=Object.freeze(Z.slice(1).map((theme,index)=>Object.freeze({
+ theme, rocks:ROCKS[index+1], hazards:HAZ[index+1]
+})));
+const superficie={theme:Z[0],rocks:ROCKS[0],hazards:HAZ[0]};
+let nivelActual=-1;
+const zonaActual=()=>nivelActual===-1?superficie:niveles[nivelActual];
 const spawn={x:120,y:621},chest={x:334,y:544},door={x:1124,y:130},cage={x:1124,y:130};
 const spots=[[387,398],[575,324],[786,452],[892,252],[538,122],[672,651],[945,452]];
 const keys=new Set();let mode='menu',count=1,turn=0,results=[],p,level,enemies,shots,fx,seen,opened,drop,potion,potionAt,time=0,toast='',toastAt=0,mission='',near='',mapOn=true,cx=0,cy=0;
@@ -77,7 +84,7 @@ const positionKey=(x,y)=>cellKey(Math.floor(x/CELL),Math.floor(y/CELL));
 // Matriz dispersa: solo se crean entradas en las celdas próximas a una roca.
 function buildObstacleGrid(){
  occupied=new Map();
- for(const rock of ROCKS[level]){
+ for(const rock of zonaActual().rocks){
   const [x,y,r]=rock,reach=r+MAX_RADIUS;
   for(let row=Math.floor((y-reach)/CELL);row<=Math.floor((y+reach)/CELL);row++){
    for(let col=Math.max(0,Math.floor((x-reach)/CELL));col<=Math.min(Math.ceil(MW/CELL)-1,Math.floor((x+reach)/CELL));col++){
@@ -160,6 +167,8 @@ function pursue(enemy,dt){
  move(enemy,(target.x-enemy.x)*step/distance,(target.y-enemy.y)*step/distance,radius);
 }
 function load(n){
+ if(!Number.isInteger(n)||n<0||n>niveles.length)throw new RangeError('Zona inexistente');
+ nivelActual=n-1;
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
  enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  events=new EventQueue();
@@ -200,7 +209,7 @@ class NivelBloqueadoError extends Error {}
 function enterNextLevel(){
  if(level===0&&!opened)throw new NivelBloqueadoError('Busca primero el cofre de la superficie');
  if(level>0&&bossAlive())throw new NivelBloqueadoError('Derrota al guardián de '+Z[level][0]);
- if(level>=4)throw new RangeError('No hay más cuevas');
+ if(nivelActual+1>=niveles.length)throw new RangeError('No hay más cuevas');
  load(level+1);
 }
 function interact(){
@@ -245,7 +254,7 @@ function discover(){const x=Math.floor(p.x/70),y=Math.floor(p.y/70);seen.add(x+'
 function sparks(x,y,color,n){for(let i=0;i<n;i++){let a=rand()*Math.PI*2,v=35+rand()*96,life=.2+rand()*.27;fx.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,max:life,color})}}
 function spawnPotion(){
  for(let i=0;i<38;i++){let a=rand()*6.283,r=65+rand()*120,x=p.x+Math.cos(a)*r,y=p.y+Math.sin(a)*r;
- if(!solid(x,y,15)&&!HAZ[level].some(([a,b,w,h])=>((x-a)/w)**2+((y-b)/h)**2<1.2)&&!enemies.some(e=>e.hp&&dist(e,{x,y})<100)){
+ if(!solid(x,y,15)&&!zonaActual().hazards.some(([a,b,w,h])=>((x-a)/w)**2+((y-b)/h)**2<1.2)&&!enemies.some(e=>e.hp&&dist(e,{x,y})<100)){
   let clear=true;for(let j=1;j<6;j++)if(solid(p.x+(x-p.x)*j/6,p.y+(y-p.y)*j/6)){clear=false;break}
   if(clear){potion={x,y};tell('Una poción apareció cerca');return}
  }}
@@ -276,7 +285,7 @@ function tick(dt){
   if(mode!=='play')return;
  }
  shots=shots.filter(b=>b.life>0);
- if(!protectedFrom(level)&&HAZ[level].some(([x,y,rx,ry])=>((p.x-x)/rx)**2+((p.y-y)/ry)**2<1))hit();
+ if(!protectedFrom(level)&&zonaActual().hazards.some(([x,y,rx,ry])=>((p.x-x)/rx)**2+((p.y-y)/ry)**2<1))hit();
  if(mode!=='play')return;
  if(drop&&dist(p,drop)<27){drop=null;p.key=true;tell('Llave recogida · Abre la jaula con E')}
  if(level>1&&p.hp<16&&!potion&&time>=potionAt)spawnPotion();
@@ -336,7 +345,7 @@ function poly(points,color,stroke){c.fillStyle=color;c.beginPath();points.forEac
 function label(s,x,y,color='#fff1d5',size=13){c.font='bold '+size+'px system-ui';c.textAlign='center';c.fillStyle='#12111c';c.fillText(s,x+1,y+2);c.fillStyle=color;c.fillText(s,x,y)}
 const terrain=document.createElement('canvas');terrain.width=MW;terrain.height=MH;let rendered=-1;
 function paintTerrain(){
- const z=Z[level];c.fillStyle=z[2];c.fillRect(0,0,MW,MH);
+ const z=zonaActual().theme;c.fillStyle=z[2];c.fillRect(0,0,MW,MH);
  const hash=i=>{const a=Math.sin(i*127.1+level*311.7)*43758.5453;return a-Math.floor(a)};
  for(let j=0;j<28;j++)for(let i=0;i<45;i++){
   let k=j*45+i,x=i*29+hash(k)*13,y=j*29+hash(k+70)*12;
@@ -347,10 +356,10 @@ function paintTerrain(){
  line(path,'#08081026',84);line(path,z[3],62);line(path,'#ffffff09',44);
  for(let x=0;x<=MW;x+=32)for(const y of [15,MH-15])rock(x,y,26+hash(x+y)*18,true);
  for(let y=20;y<MH;y+=32)for(const x of [16,MW-16])rock(x,y,24+hash(x+y)*17,true);
- for(const [x,y,r] of ROCKS[level])rock(x,y,r,false);
+ for(const [x,y,r] of zonaActual().rocks)rock(x,y,r,false);
  for(let i=0;i<44;i++){
   let x=65+hash(i+2400)*(MW-130),y=63+hash(i+900)*(MH-126);
-  if(solid(x,y,15)||HAZ[level].some(([a,b,rx,ry])=>Math.hypot((x-a)/rx,(y-b)/ry)<1.3))continue;
+  if(solid(x,y,15)||zonaActual().hazards.some(([a,b,rx,ry])=>Math.hypot((x-a)/rx,(y-b)/ry)<1.3))continue;
   if(level===0){line([[x,y+3],[x-4,y-5],[x,y],[x+5,y-6]],'#8bb47d88',2);if(i%3===0)ellipse(x+5,y-6,2,2,'#ffc479')}
   else{line([[x-7,y+5],[x,y],[x+9,y+3]],z[3],3);if(i%3===0)ellipse(x,y,2,2,z[4])}
  }
@@ -428,7 +437,7 @@ function mini(){
 function draw(){
  cacheTerrain();
  c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W,H);c.save();c.translate(-cx,-cy);c.drawImage(terrain,0,0);
- for(const h of HAZ[level])hazard(...h);
+ for(const h of zonaActual().hazards)hazard(...h);
  if(!level){box();ellipse(spawn.x,spawn.y+40,19,10,'#211c26');ellipse(spawn.x,spawn.y+34,8,10,'#ffb06b');ellipse(spawn.x,spawn.y+38,4,6,'#ffeb8a')}
  gate();
  for(const e of enemies)if(!e.hp)ellipse(e.x,e.y,10,5,COL[level]+'45');
