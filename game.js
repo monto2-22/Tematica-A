@@ -25,9 +25,39 @@ let seed=1;const rand=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/42949
 const fresh=()=>({x:spawn.x,y:spawn.y,hp:16,lives:3,score:0,xp:0,weapons:[0],armors:[],weapon:0,armor:0,earned:new Set(),dir:{x:1,y:0},cd:0,inv:0,key:false});
 // Turnos locales: el arreglo tiene exactamente una o dos posiciones por partida.
 let players=[fresh()];
+// Montículo mínimo: fecha de ejecución y orden de llegada para los empates.
+class EventQueue {
+ constructor(){this.heap=[];this.sequence=0}
+ static before(a,b){return a.at<b.at||(a.at===b.at&&a.order<b.order)}
+ add(at,run){
+  const event={at,run,order:this.sequence++},h=this.heap;
+  let i=h.length;h.push(event);
+  while(i>0){
+   const parent=(i-1)>>1;
+   if(!EventQueue.before(event,h[parent]))break;
+   h[i]=h[parent];i=parent;
+  }
+  h[i]=event;
+ }
+ take(){
+  const h=this.heap,first=h[0],last=h.pop();
+  if(!h.length)return first;
+  let i=0;
+  while(i*2+1<h.length){
+   let child=i*2+1;
+   if(child+1<h.length&&EventQueue.before(h[child+1],h[child]))child++;
+   if(!EventQueue.before(h[child],last))break;
+   h[i]=h[child];i=child;
+  }
+  h[i]=last;return first;
+ }
+ runDue(now){while(this.heap.length&&this.heap[0].at<=now)this.take().run()}
+}
+let events;
 function load(n){
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
  enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
+ events=new EventQueue();
  cx=0;cy=MH-H;discover();
 }
 function foe(x,y,id,boss){const max=boss?85+level*24:25+level*8;return{x,y,id,boss,max,hp:max,r:boss?30:15,cd:.9+id%4*.32,wind:0,dir:1,flash:0};}
@@ -117,13 +147,12 @@ function tick(dt){
  y=+(keys.has('s')||keys.has('arrowdown'))- +(keys.has('w')||keys.has('arrowup'));
  if(x||y){let n=Math.hypot(x,y);p.dir={x:x/n,y:y/n};move(p,p.dir.x*220*dt,p.dir.y*220*dt,12);discover()}
  if(keys.has('j'))attack(true);else if(keys.has(' '))attack();
+ events.runDue(time);
  for(const e of enemies){
   if(!e.hp)continue;let d=dist(p,e),a=Math.atan2(p.y-e.y,p.x-e.x);
   e.flash=Math.max(0,e.flash-dt);e.dir=p.x<e.x?-1:1;
-  if(e.wind>0){e.wind-=dt;if(e.wind<=0){const spread=e.boss?[-.24,0,.24]:[0],v=145+level*28;
-   spread.forEach(offset=>shots.push({x:e.x,y:e.y,vx:Math.cos(e.aim+offset)*v,vy:Math.sin(e.aim+offset)*v,life:2.7,el:level}));e.cd=(e.boss?1.65:2.12)-level*.16;}}
-  else if(d<(e.boss?440:250)){
-   e.cd-=dt;if(e.cd<=0){e.wind=.63-level*.075;e.aim=a}
+  if(!e.wind&&d<(e.boss?440:250)){
+   e.cd-=dt;if(e.cd<=0)prepareEnemyAttack(e,a);
    else if(d>(e.boss?113:49))move(e,Math.cos(a)*(43+level*9)*dt,Math.sin(a)*(43+level*9)*dt,e.r*.65);
   }
   if(d<e.r+14)hit();if(mode!=='play')return;
@@ -143,6 +172,19 @@ function tick(dt){
  if(potion&&dist(p,potion)<28){p.hp=Math.min(16,p.hp+4);potion=null;potionAt=time+16+rand()*7;tell('Poción: +2 corazones')}
  for(const f of fx){f.life-=dt;f.x+=(f.vx||0)*dt;f.y+=(f.vy||0)*dt}fx=fx.filter(f=>f.life>0);
  cx+=(clamp(p.x-W/2,0,MW-W)-cx)*Math.min(1,dt*7);cy+=(clamp(p.y-H/2,0,MH-H)-cy)*Math.min(1,dt*7);
+}
+function prepareEnemyAttack(enemy,angle){
+ enemy.wind=.63-level*.075;enemy.aim=angle;
+ events.add(time+enemy.wind,()=>{
+  enemy.wind=0;
+  if(!enemy.hp)return;
+  const spread=enemy.boss?[-.24,0,.24]:[0],speed=145+level*28;
+  for(const offset of spread){
+   const direction=angle+offset;
+   shots.push({x:enemy.x,y:enemy.y,vx:Math.cos(direction)*speed,vy:Math.sin(direction)*speed,life:2.7,el:level});
+  }
+  enemy.cd=(enemy.boss?1.65:2.12)-level*.16;
+ });
 }
 function input(k){
  if(k==='p'){if(mode==='play')show('pause');else if(mode==='pause')show('play');return}
