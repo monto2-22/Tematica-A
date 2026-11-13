@@ -154,3 +154,52 @@ function hud(){
  near=!level&&!opened&&dist(p,chest)<67?'E · Abrir cofre':dist(p,door)<68?'E · '+(!level?'Entrar a la cueva':level===4?'Abrir jaula':'Descender'):'';
  $('mission').textContent=mission;$('hint').textContent=near||(time<toastAt&&toast?toast:level&&bossAlive()?'Debilidad: '+ELEM[WEAK[level]]:'');
 }
+function ellipse(x,y,rx,ry,color){c.fillStyle=color;c.beginPath();c.ellipse(x,y,rx,ry,0,0,7);c.fill()}
+function line(points,color,w=2){c.strokeStyle=color;c.lineWidth=w;c.lineJoin='round';c.lineCap='round';c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke()}
+function poly(points,color,stroke){c.fillStyle=color;c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fill();if(stroke){c.strokeStyle=stroke;c.lineWidth=2;c.stroke()}}
+function label(s,x,y,color='#fff1d5',size=13){c.font='bold '+size+'px system-ui';c.textAlign='center';c.fillStyle='#12111c';c.fillText(s,x+1,y+2);c.fillStyle=color;c.fillText(s,x,y)}
+const terrain=document.createElement('canvas');terrain.width=MW;terrain.height=MH;let rendered=-1;
+function paintTerrain(){
+ const z=Z[level];c.fillStyle=z[2];c.fillRect(0,0,MW,MH);
+ const hash=i=>{const a=Math.sin(i*127.1+level*311.7)*43758.5453;return a-Math.floor(a)};
+ for(let j=0;j<28;j++)for(let i=0;i<45;i++){
+  let k=j*45+i,x=i*29+hash(k)*13,y=j*29+hash(k+70)*12;
+  ellipse(x,y,4+hash(k+9)*16,2+hash(k+10)*6,k%3===0?z[3]:k%2?'#ffffff08':'#00000012');
+  if(k%5===0)line([[x-3,y+3],[x,y],[x+5,y-1]],'#ffffff14',1);
+ }
+ const path=[[93,652],[255,546],[435,544],[630,429],[800,365],[1010,300],[1140,150]];
+ line(path,'#08081026',84);line(path,z[3],62);line(path,'#ffffff09',44);
+ for(let x=0;x<=MW;x+=32)for(const y of [15,MH-15])rock(x,y,26+hash(x+y)*18,true);
+ for(let y=20;y<MH;y+=32)for(const x of [16,MW-16])rock(x,y,24+hash(x+y)*17,true);
+ for(const [x,y,r] of ROCKS[level])rock(x,y,r,false);
+ for(let i=0;i<44;i++){
+  let x=65+hash(i+2400)*(MW-130),y=63+hash(i+900)*(MH-126);
+  if(solid(x,y,15)||HAZ[level].some(([a,b,rx,ry])=>Math.hypot((x-a)/rx,(y-b)/ry)<1.3))continue;
+  if(level===0){line([[x,y+3],[x-4,y-5],[x,y],[x+5,y-6]],'#8bb47d88',2);if(i%3===0)ellipse(x+5,y-6,2,2,'#ffc479')}
+  else{line([[x-7,y+5],[x,y],[x+9,y+3]],z[3],3);if(i%3===0)ellipse(x,y,2,2,z[4])}
+ }
+}
+function rock(x,y,r,edge){
+ const z=Z[level];ellipse(x,y+r*.39,r*1.05,r*.72,'#08081259');
+ const p=[[x-r,y+r*.28],[x-r*.84,y-r*.55],[x-r*.34,y-r*.98],[x+r*.38,y-r*.88],[x+r*.86,y-r*.41],[x+r,y+r*.19],[x+r*.61,y+r*.75],[x-r*.38,y+r*.82]];
+ if(level===0&&!edge){
+  ellipse(x,y+r*.35,r,r*.66,'#182b27');for(let i=0;i<3;i++){const dx=(i-1)*r*.47,dy=i===1?-r*.28:r*.15;
+   c.fillStyle='#372b27';c.fillRect(x+dx-5,y+dy,10,r*.63);
+   for(let j=0;j<3;j++){let t=y+dy-r*.72+j*r*.26;poly([[x+dx,t-r*.25],[x+dx-r*(.32+j*.085),t+r*.33],[x+dx+r*(.32+j*.085),t+r*.32]],['#51806a','#3e6958','#305a4b'][j],'#1b4036')}
+  }return;
+ }
+ poly(p,edge?'#171722':z[3],'#161622');poly([p[1],p[2],p[3],p[4],[x+r*.36,y-r*.34],[x-r*.48,y-r*.25]],edge?z[2]:z[3]);
+ poly([p[0],p[1],[x-r*.48,y-r*.25],[x-r*.28,y+r*.23],p[7]],'#0908174d');
+ poly([p[5],p[6],p[7],[x-r*.28,y+r*.23],[x+r*.36,y+r*.17]],'#09081763');
+ line([[x-r*.48,y-r*.25],[x-r*.11,y-r*.52],[x+r*.36,y-r*.34]],'#ffffff19',3);
+ if(!edge)for(let i=0;i<3;i++){let a=x+(i-1)*r*.2,b=y-r*.18+i*r*.07;poly([[a-6,b+8],[a-4,b-8-i*2],[a+1,b-15-i*2],[a+7,b-2],[a+5,b+8]],z[4]+'a0');line([[a,b-8],[a,b+4]],'#ffffff87',1)}
+}
+// El escenario estático se guarda en una segunda capa; solo se redibuja al cambiar de zona.
+function cacheTerrain(){
+ if(rendered===level)return;
+ const screen=c;c=terrain.getContext('2d');paintTerrain();c=screen;rendered=level;
+}
+function hazard(x,y,rx,ry){
+ const tint=COL[level];ellipse(x,y,rx+6,ry+5,'#100e1c86');ellipse(x,y,rx,ry,tint+'78');ellipse(x,y,rx*.88,ry*.85,tint+'25');
+ for(let i=0;i<6;i++){const a=i*1.07+time*.65;let px=x+Math.cos(a)*rx*.67,py=y+Math.sin(a*1.7)*ry*.58;line([[px-10,py+2],[px,py],[px+12,py-2]],tint+'b0',level===1?3:2)}
+}
