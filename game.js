@@ -53,6 +53,15 @@ function menu(){p=fresh();load(0);show('menu')}
 function finish(win){results.push({win,score:p.score});show(count===2&&turn===0?'handoff':'end')}
 function hit(){if(p.inv>0||mode!=='play')return;p.hp--;p.inv=.72;sparks(p.x,p.y,'#ff7891',10);if(!p.hp){p.lives--;if(p.lives)show('retry');else finish(false)}}
 const bossAlive=()=>enemies.some(e=>e.boss&&e.hp>0);
+function award(e){
+ const id=level+':'+e.id;
+ if(!p.earned.has(id)){p.earned.add(id);p.score+=e.boss?250:50;p.xp+=e.boss?100:30}
+ if(!e.boss)return;
+ if(!p.weapons.includes(level))p.weapons.push(level);
+ const next=level%4+1;if(!p.armors.includes(next))p.armors.push(next);
+ if(level===4){drop={x:e.x,y:e.y};tell('¡Guardián vencido! Recoge la llave dorada')}
+ else {p.armor=next;tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
+}
 function damage(e,d){if(e.hp<=0)return;e.hp=Math.max(0,e.hp-d);e.flash=.12;sparks(e.x,e.y,COL[level],e.hp?5:17);if(!e.hp)award(e)}
 function attack(sword=false){
  if(!level||p.cd>0)return;
