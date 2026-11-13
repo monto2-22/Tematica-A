@@ -54,6 +54,22 @@ class EventQueue {
  runDue(now){while(this.heap.length&&this.heap[0].at<=now)this.take().run()}
 }
 let events;
+// Pilas LIFO de cambios manuales de equipamiento. No rebobinan el combate.
+let undoStack=[],redoStack=[];
+function equip(slot,value){
+ const items=slot==='weapon'?p.weapons:p.armors;
+ if(!items.includes(value)||p[slot]===value)return;
+ undoStack.push({slot,before:p[slot],after:value});
+ redoStack.length=0;p[slot]=value;
+}
+function replayEquipment(redo){
+ const from=redo?redoStack:undoStack,to=redo?undoStack:redoStack;
+ const change=from.pop();
+ if(!change){tell(redo?'No hay cambios para rehacer':'No hay cambios para deshacer');return}
+ p[change.slot]=redo?change.after:change.before;
+ to.push(change);
+ tell((redo?'Rehecho: ':'Deshecho: ')+ELEM[p[change.slot]]);
+}
 const CELL=32, MAX_RADIUS=32;
 let occupied, routes;
 const cellKey=(col,row)=>row*Math.ceil(MW/CELL)+col;
@@ -147,6 +163,7 @@ function load(n){
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
  enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  events=new EventQueue();
+ undoStack=[];redoStack=[];
  buildObstacleGrid();buildRoutes();
  cx=0;cy=MH-H;discover();
 }
@@ -187,7 +204,7 @@ function enterNextLevel(){
  load(level+1);
 }
 function interact(){
- if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;tell('Varita de Agua y armadura de Fuego equipadas');return}
+ if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;undoStack=[];redoStack=[];tell('Varita de Agua y armadura de Fuego equipadas');return}
  if(dist(p,door)>68)return;
  if(level<4){
   try{enterNextLevel()}catch(error){if(!(error instanceof NivelBloqueadoError))throw error;tell(error.message)}
@@ -203,7 +220,7 @@ function award(e){
  if(!p.weapons.includes(level))p.weapons.push(level);
  const next=level%4+1;if(!p.armors.includes(next))p.armors.push(next);
  if(level===4){drop={x:e.x,y:e.y};tell('¡Guardián vencido! Recoge la llave dorada')}
- else {p.armor=next;tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
+ else {p.armor=next;undoStack=[];redoStack=[];tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
 }
 function damage(e,d){if(e.hp<=0)return;e.hp=Math.max(0,e.hp-d);e.flash=.12;sparks(e.x,e.y,COL[level],e.hp?5:17);if(!e.hp)award(e)}
 const heroLevel=()=>1+Math.floor(p.xp/80);
@@ -285,14 +302,16 @@ function input(k){
  if(k==='m'){mapOn=!mapOn;return}
  if(mode!=='play')return;
  if(k==='e')interact();
- if(k==='r'&&p.armors.length)p.armor=p.armors[(p.armors.indexOf(p.armor)+1)%p.armors.length];
- if(/^[1-5]$/.test(k)&&p.weapons.includes(+k-1))p.weapon=+k-1;
+ if(k==='r'&&p.armors.length)equip('armor',p.armors[(p.armors.indexOf(p.armor)+1)%p.armors.length]);
+ if(/^[1-5]$/.test(k))equip('weapon',+k-1);
+ if(k==='z'||k==='y')replayEquipment(k==='y');
 }
-const bound=['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright',' ','j','e','r','m','p','1','2','3','4','5'];
+const bound=['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright',' ','j','e','r','m','p','z','y','1','2','3','4','5'];
 window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(!bound.includes(k)||(!['play','pause'].includes(mode)))return;e.preventDefault();keys.add(k);if(!e.repeat)input(k)});
 window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();if(mode==='play')show('pause')});
 document.querySelectorAll('[data-key]').forEach(b=>{const k=b.dataset.key;b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);if(mode==='play'){keys.add(k);input(k)}};b.onpointerup=b.onpointercancel=b.onlostpointercapture=()=>keys.delete(k)});
 $('map').onclick=()=>input('m');$('pause').onclick=()=>input('p');
+$('undo').onclick=()=>input('z');$('redo').onclick=()=>input('y');
 function hud(){
  $('area').textContent=level?'Cueva 0'+level+' · '+Z[level][0]:'Capítulo 00 · Superficie';$('name').textContent=Z[level][1];
  $('player').textContent=count===2?'Jugador '+(turn+1)+' de 2':'Expedición individual';
@@ -304,12 +323,12 @@ function hud(){
  if($('weapons').dataset.stamp!==stamp){
   $('weapons').dataset.stamp=stamp;
   for(const [id,list,equipped,kind] of [['weapons',p.weapons,p.weapon,'weapon'],['armorList',p.armors,p.armor,'armor']]){
-   const box=$(id);box.replaceChildren();[...list].sort().forEach(el=>{const b=document.createElement('button');b.textContent=ELEM[el];b.className=el===equipped?'on':'';b.setAttribute('aria-pressed',el===equipped);b.onclick=()=>{if(mode==='play')p[kind]=el};box.append(b)});
+   const box=$(id);box.replaceChildren();[...list].sort().forEach(el=>{const b=document.createElement('button');b.textContent=ELEM[el];b.className=el===equipped?'on':'';b.setAttribute('aria-pressed',el===equipped);b.onclick=()=>{if(mode==='play')equip(kind,el)};box.append(b)});
   }
  }
  mission=!level?(!opened?'Busca el cofre al este del campamento.':'Ve a la entrada de la cueva, al noreste.'):bossAlive()?'Derrota al guardián de '+Z[level][0]+'.':level<4?'Entra por el portal del noreste.':p.key?'Abre la jaula al noreste.':'Recoge la llave dorada.';
  near=!level&&!opened&&dist(p,chest)<67?'E · Abrir cofre':dist(p,door)<68?'E · '+(!level?'Entrar a la cueva':level===4?'Abrir jaula':'Descender'):'';
- $('mission').textContent=mission;$('hint').textContent=near||(time<toastAt&&toast?toast:level&&bossAlive()?'Debilidad: '+ELEM[WEAK[level]]:'');
+ $('mission').textContent=mission;$('hint').textContent=(time<toastAt&&toast?toast:near)||(level&&bossAlive()?'Debilidad: '+ELEM[WEAK[level]]:'');
 }
 function ellipse(x,y,rx,ry,color){c.fillStyle=color;c.beginPath();c.ellipse(x,y,rx,ry,0,0,7);c.fill()}
 function line(points,color,w=2){c.strokeStyle=color;c.lineWidth=w;c.lineJoin='round';c.lineCap='round';c.beginPath();points.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.stroke()}
