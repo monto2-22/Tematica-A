@@ -28,6 +28,7 @@ function load(n){
  enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  cx=0;cy=MH-H;discover();
 }
+function foe(x,y,id,boss){const max=boss?85+level*24:25+level*8;return{x,y,id,boss,max,hp:max,r:boss?30:15,cd:.9+id%4*.32,wind:0,dir:1,flash:0};}
 function start(n){count=n;turn=0;results=[];p=fresh();load(0);show('play');}
 function tell(s){toast=s;toastAt=time+3.3}
 function show(s){
@@ -50,6 +51,7 @@ function show(s){
 }
 function menu(){p=fresh();load(0);show('menu')}
 function finish(win){results.push({win,score:p.score});show(count===2&&turn===0?'handoff':'end')}
+const bossAlive=()=>enemies.some(e=>e.boss&&e.hp>0);
 function solid(x,y,r=12){return x<50+r||x>MW-50-r||y<47+r||y>MH-47-r||ROCKS[level].some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r)}
 function move(o,dx,dy,r){if(!solid(o.x+dx,o.y,r))o.x+=dx;if(!solid(o.x,o.y+dy,r))o.y+=dy}
 function discover(){const x=Math.floor(p.x/70),y=Math.floor(p.y/70);seen.add(x+','+y)}
@@ -58,4 +60,15 @@ function tick(dt){
  let x=+(keys.has('d')||keys.has('arrowright'))- +(keys.has('a')||keys.has('arrowleft')),
  y=+(keys.has('s')||keys.has('arrowdown'))- +(keys.has('w')||keys.has('arrowup'));
  if(x||y){let n=Math.hypot(x,y);p.dir={x:x/n,y:y/n};move(p,p.dir.x*220*dt,p.dir.y*220*dt,12);discover()}
+ for(const e of enemies){
+  if(!e.hp)continue;let d=dist(p,e),a=Math.atan2(p.y-e.y,p.x-e.x);
+  e.flash=Math.max(0,e.flash-dt);e.dir=p.x<e.x?-1:1;
+  if(e.wind>0){e.wind-=dt;if(e.wind<=0){const spread=e.boss?[-.24,0,.24]:[0],v=145+level*28;
+   spread.forEach(offset=>shots.push({x:e.x,y:e.y,vx:Math.cos(e.aim+offset)*v,vy:Math.sin(e.aim+offset)*v,life:2.7,el:level}));e.cd=(e.boss?1.65:2.12)-level*.16;}}
+  else if(d<(e.boss?440:250)){
+   e.cd-=dt;if(e.cd<=0){e.wind=.63-level*.075;e.aim=a}
+   else if(d>(e.boss?113:49))move(e,Math.cos(a)*(43+level*9)*dt,Math.sin(a)*(43+level*9)*dt,e.r*.65);
+  }
+  if(d<e.r+14)hit();if(mode!=='play')return;
+ }
 }
