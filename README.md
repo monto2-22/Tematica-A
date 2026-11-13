@@ -25,16 +25,16 @@ Ejecuta `node criterios.test.cjs` desde la carpeta del juego. Las pruebas usan e
 
 ## Estructuras de datos
 
-| Capacidad | Estructura | Por qué se usa | Alternativa descartada | Complejidad clave |
+| Capacidad del dominio | Estructura elegida | Por qué esta | Alternativa descartada y motivo | Complejidad clave |
 |---|---|---|---|---|
-| Eventos | Cola de prioridad con montículo mínimo | Ejecuta ataques según su hora y conserva el orden de llegada en los empates | FIFO no ordena fechas distintas | O(log N) por inserción o extracción |
-| Puntaje | Contador numérico por jugador | Actualiza el total directamente | AVL serviría para un ranking ordenado | O(1) |
-| Ruta de enemigos | Grafo con listas de adyacencia | Busca rutas mínimas con BFS porque los pasos del grafo tienen el mismo peso | Matriz de adyacencia necesita O(V²) de espacio | O(V + E) por búsqueda |
-| Mapa | Matriz dispersa implementada con Map | Solo guarda celdas cercanas a obstáculos y consulta sus candidatos | Matriz densa reservaría espacio para todas las celdas | Acceso a la celda O(1) esperado, más sus candidatos |
-| Inventario | Arreglos dinámicos | Permiten acceder por índice y añadir equipo al final | Lista enlazada requiere recorrer nodos para acceder por índice | O(1) por índice; O(N) para comprobar pertenencia |
-| Turnos y vidas | Arreglo sellado de una o dos posiciones | Guarda la partida de cada jugador y accede a ella por índice | Lista circular volvería al primer jugador | O(1) |
-| Acciones enemigas | Arreglo dinámico | El ciclo revisa el estado de cada enemigo y decide si debe moverse o preparar un ataque | Lista circular modelaría turnos | O(N) para recorrerlos, más las búsquedas y eventos |
-| Deshacer y rehacer | Dos pilas LIFO | Revierte o restaura el último cambio manual de equipamiento | Lista doble exige mantener un cursor | O(1) amortizado por operación de pila |
+| Eventos del juego | Cola de prioridad / montículo | Ejecuta ataques según su hora y conserva el orden de llegada en los empates | FIFO no ordena fechas distintas | O(log N) por inserción o extracción |
+| Puntajes del jugador | Contador numérico por jugador | Actualiza el total directamente | AVL serviría para un ranking ordenado | O(1) |
+| Ruta de enemigos | Grafo (lista de adyacencia) | Dijkstra busca la ruta de menor costo y penaliza los pasos muy cercanos a obstáculos | Matriz de adyacencia necesita O(V²) de espacio | O(E log V) por búsqueda |
+| Representación del mapa | Matriz dispersa | Usa Map como soporte para guardar solo las celdas con obstáculos cercanos | Matriz densa reservaría espacio para todas las celdas | Acceso a la celda O(1) esperado, más sus candidatos |
+| Inventario del jugador | Arreglo / arreglo dinámico | Permiten acceder por índice y añadir equipo al final | Lista enlazada requiere recorrer nodos para acceder por índice | O(1) por índice; O(N) para comprobar pertenencia |
+| Turnos locales y vidas | Arreglo fijo | Guarda la partida de cada jugador y accede a ella por índice | Lista circular volvería al primer jugador | O(1) |
+| Acciones de los enemigos | Arreglo / arreglo dinámico | El ciclo revisa el estado de cada enemigo y decide si debe moverse o preparar un ataque | Lista circular modelaría turnos | O(N) para recorrerlos, más las búsquedas y eventos |
+| Deshacer y rehacer | Pila | Dos pilas LIFO revierten o restauran el último cambio manual de equipamiento | Lista doble exige mantener un cursor | O(1) amortizado por operación de pila |
 
 Usa **Z** y **Y**, o los botones del inventario, para deshacer y rehacer cambios manuales de equipo. El historial se reinicia al cargar una zona, reintentar o recibir equipo automático. Estas acciones no restauran vida ni revierten el combate.
 
