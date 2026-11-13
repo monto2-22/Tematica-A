@@ -19,8 +19,15 @@ const ROCKS=[
 ];
 const HAZ=[[],[[505,289,64,45],[809,527,77,50]],[[382,277,56,43],[716,380,75,53]],[[402,231,57,45],[799,418,63,48]],[[485,284,57,47],[886,397,61,51]]];
 // plan.md: la superficie es independiente y las cuevas ocupan los índices 0–3.
+// Cada fila aumenta la presión: más enemigos, más resistencia y ataques más rápidos.
+const dificultad=[
+ {minions:4,enemyHP:33,bossHP:109,speed:52,shotSpeed:173,wind:.56,recovery:1.49,spread:[-.24,0,.24]},
+ {minions:5,enemyHP:43,bossHP:140,speed:63,shotSpeed:208,wind:.47,recovery:1.30,spread:[-.34,-.11,.11,.34]},
+ {minions:6,enemyHP:55,bossHP:176,speed:75,shotSpeed:244,wind:.39,recovery:1.11,spread:[-.44,-.22,0,.22,.44]},
+ {minions:7,enemyHP:69,bossHP:219,speed:88,shotSpeed:282,wind:.32,recovery:.94,spread:[-.55,-.33,-.11,.11,.33,.55]}
+];
 const niveles=Object.freeze(Z.slice(1).map((theme,index)=>Object.freeze({
- theme, rocks:ROCKS[index+1], hazards:HAZ[index+1]
+ theme, rocks:ROCKS[index+1], hazards:HAZ[index+1], difficulty:Object.freeze(dificultad[index])
 })));
 const superficie={theme:Z[0],rocks:ROCKS[0],hazards:HAZ[0]};
 let nivelActual=-1;
@@ -163,20 +170,24 @@ function pursue(enemy,dt){
  }
  const distance=dist(enemy,target);
  if(!distance)return;
- const step=Math.min(distance,(43+level*9)*dt);
+ const step=Math.min(distance,zonaActual().difficulty.speed*dt);
  move(enemy,(target.x-enemy.x)*step/distance,(target.y-enemy.y)*step/distance,radius);
 }
 function load(n){
  if(!Number.isInteger(n)||n<0||n>niveles.length)throw new RangeError('Zona inexistente');
  nivelActual=n-1;
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
- enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
+ enemies=n?spots.slice(0,zonaActual().difficulty.minions).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  events=new EventQueue();
  undoStack=[];redoStack=[];
  buildObstacleGrid();buildRoutes();
  cx=0;cy=MH-H;discover();
 }
-function foe(x,y,id,boss){const max=boss?85+level*24:25+level*8;return{x,y,id,boss,max,hp:max,r:boss?30:15,cd:.9+id%4*.32,wind:0,dir:1,flash:0};}
+function foe(x,y,id,boss){
+ const difficulty=zonaActual().difficulty;
+ const max=boss?difficulty.bossHP:difficulty.enemyHP;
+ return{x,y,id,boss,max,hp:max,r:boss?30:15,cd:difficulty.recovery*.6+id%4*.32,wind:0,dir:1,flash:0};
+}
 function start(n){
  if(n!==1&&n!==2)throw new RangeError('Se requiere uno o dos jugadores');
  players=Array.from({length:n},fresh);Object.seal(players);
@@ -294,16 +305,16 @@ function tick(dt){
  cx+=(clamp(p.x-W/2,0,MW-W)-cx)*Math.min(1,dt*7);cy+=(clamp(p.y-H/2,0,MH-H)-cy)*Math.min(1,dt*7);
 }
 function prepareEnemyAttack(enemy,angle){
- enemy.wind=.63-level*.075;enemy.aim=angle;
+ const {wind,spread,shotSpeed,recovery}=zonaActual().difficulty;
+ enemy.wind=wind;enemy.aim=angle;
  events.add(time+enemy.wind,()=>{
   enemy.wind=0;
   if(!enemy.hp)return;
-  const spread=enemy.boss?[-.24,0,.24]:[0],speed=145+level*28;
-  for(const offset of spread){
+  for(const offset of enemy.boss?spread:[0]){
    const direction=angle+offset;
-   shots.push({x:enemy.x,y:enemy.y,vx:Math.cos(direction)*speed,vy:Math.sin(direction)*speed,life:2.7,el:level});
+   shots.push({x:enemy.x,y:enemy.y,vx:Math.cos(direction)*shotSpeed,vy:Math.sin(direction)*shotSpeed,life:2.7,el:level});
   }
-  enemy.cd=(enemy.boss?1.65:2.12)-level*.16;
+  enemy.cd=recovery+(enemy.boss?0:.47);
  });
 }
 function input(k){
