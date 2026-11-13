@@ -28,4 +28,25 @@ function load(n){
  enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  cx=0;cy=MH-H;discover();
 }
+function start(n){count=n;turn=0;results=[];p=fresh();load(0);show('play');}
 function tell(s){toast=s;toastAt=time+3.3}
+function show(s){
+ mode=s;keys.clear();$('overlay').hidden=s==='play';
+ const entries={
+ menu:['Aventura 2D','WorldCave','Los cuatro elementos','Desciende por cuatro cuevas, domina sus elementos y libera a la princesa.',[['1 jugador',()=>start(1)],['2 por turnos',()=>start(2)]]],
+ pause:['Expedición en pausa','Pausa','','Agua vence a Fuego, Tierra a Agua, Viento a Tierra y Fuego a Viento.',[['Continuar',()=>show('play')],['Volver al menú',menu]]],
+ retry:['Punto de control','Has caído','','Te quedan '+p.lives+' '+(p.lives===1?'vida':'vidas')+'. Reintenta esta zona con ocho corazones.',[['Reintentar',()=>{p.hp=16;load(level);show('play')}]]],
+ handoff:['Fin del primer turno','Jugador 2','','Jugador 1: '+(results[0]?.score??0)+' puntos. Ahora empieza tu aventura desde la superficie.',[['Iniciar turno',()=>{turn=1;p=fresh();load(0);show('play')}]]],
+ end:[count===2?'Resultados finales':'Fin de la aventura',results.some(r=>r.win)?'¡Princesa rescatada!':'Expedición terminada','',results.map((r,i)=>'Jugador '+(i+1)+': '+r.score+' puntos · '+(r.win?'rescate completado':'sin vidas')).join('\n'),[['Volver al menú',menu]]]
+ };
+ if(s!=='play'){
+  const [label,title,sub,body,actions]=entries[s],d=$('dialog');
+  d.innerHTML='<div class="eyebrow"></div><h1></h1><div class="subtitle"></div><p style="white-space:pre-line"></p><div class="actions"></div>';
+  [label,title,sub,body].forEach((v,i)=>d.children[i].textContent=v);
+  actions.forEach(([name,fn],i)=>{const b=document.createElement('button');b.textContent=name;if(!i)b.className='primary';b.onclick=fn;d.lastChild.append(b)});
+  d.lastChild.firstChild.focus({preventScroll:true});
+ }else document.activeElement?.blur();
+ hud();
+}
+function menu(){p=fresh();load(0);show('menu')}
+function finish(win){results.push({win,score:p.score});show(count===2&&turn===0?'handoff':'end')}
