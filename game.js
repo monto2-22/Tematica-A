@@ -51,6 +51,7 @@ function show(s){
 }
 function menu(){p=fresh();load(0);show('menu')}
 function finish(win){results.push({win,score:p.score});show(count===2&&turn===0?'handoff':'end')}
+function hit(){if(p.inv>0||mode!=='play')return;p.hp--;p.inv=.72;sparks(p.x,p.y,'#ff7891',10);if(!p.hp){p.lives--;if(p.lives)show('retry');else finish(false)}}
 const bossAlive=()=>enemies.some(e=>e.boss&&e.hp>0);
 function damage(e,d){if(e.hp<=0)return;e.hp=Math.max(0,e.hp-d);e.flash=.12;sparks(e.x,e.y,COL[level],e.hp?5:17);if(!e.hp)award(e)}
 function attack(sword=false){
@@ -66,6 +67,14 @@ function attack(sword=false){
 function solid(x,y,r=12){return x<50+r||x>MW-50-r||y<47+r||y>MH-47-r||ROCKS[level].some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r)}
 function move(o,dx,dy,r){if(!solid(o.x+dx,o.y,r))o.x+=dx;if(!solid(o.x,o.y+dy,r))o.y+=dy}
 function discover(){const x=Math.floor(p.x/70),y=Math.floor(p.y/70);seen.add(x+','+y)}
+function spawnPotion(){
+ for(let i=0;i<38;i++){let a=rand()*6.283,r=65+rand()*120,x=p.x+Math.cos(a)*r,y=p.y+Math.sin(a)*r;
+ if(!solid(x,y,15)&&!HAZ[level].some(([a,b,w,h])=>((x-a)/w)**2+((y-b)/h)**2<1.2)&&!enemies.some(e=>e.hp&&dist(e,{x,y})<100)){
+  let clear=true;for(let j=1;j<6;j++)if(solid(p.x+(x-p.x)*j/6,p.y+(y-p.y)*j/6)){clear=false;break}
+  if(clear){potion={x,y};tell('Una poción apareció cerca');return}
+ }}
+ potionAt=time+2;
+}
 function tick(dt){
  time+=dt;p.cd=Math.max(0,p.cd-dt);p.inv=Math.max(0,p.inv-dt);
  let x=+(keys.has('d')||keys.has('arrowright'))- +(keys.has('a')||keys.has('arrowleft')),
@@ -91,4 +100,8 @@ function tick(dt){
   if(mode!=='play')return;
  }
  shots=shots.filter(b=>b.life>0);
+ if(p.armor!==level&&HAZ[level].some(([x,y,rx,ry])=>((p.x-x)/rx)**2+((p.y-y)/ry)**2<1))hit();
+ if(mode!=='play')return;
+ if(level>1&&p.hp<16&&!potion&&time>=potionAt)spawnPotion();
+ if(potion&&dist(p,potion)<28){p.hp=Math.min(16,p.hp+4);potion=null;potionAt=time+16+rand()*7;tell('Poción: +2 corazones')}
 }
