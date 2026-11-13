@@ -1,0 +1,68 @@
+const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
+const ctx=new Proxy({createRadialGradient:()=>({addColorStop(){}})},{get:(o,k)=>o[k]??(()=>{})});
+const make=()=>({children:[],dataset:{},style:{},setAttribute(){},replaceChildren(){this.children=[]},append(e){this.children.push(e)},focus(){},get firstChild(){return this.children[0]},get lastChild(){return this.children.at(-1)},set innerHTML(v){this.children=Array.from({length:5},make)},getContext(){return ctx}});
+const elements=new Map();const sandbox={assert,document:{getElementById(id){if(!elements.has(id))elements.set(id,make());return elements.get(id)},createElement:make,querySelectorAll:()=>[]},window:{addEventListener(){}},requestAnimationFrame(){}};
+vm.createContext(sandbox);
+vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,'game.js'),'utf8'),sandbox);
+function run(name,code){
+ vm.runInContext(code,sandbox,{filename:name});
+ console.log('OK '+name);
+}
+const begin="start(1); Object.assign(p,chest); interact(); Object.assign(p,door); interact();";
+const killBoss="const boss=enemies.find(e=>e.boss); damage(boss,boss.hp);";
+const rescue=`
+ Object.assign(p,chest); interact(); Object.assign(p,door); interact();
+ while(level<4){const boss=enemies.find(e=>e.boss);damage(boss,boss.hp);Object.assign(p,door);interact()}
+ ${killBoss}
+ assert.ok(drop); Object.assign(p,cage);interact();assert.equal(mode,'play');
+ Object.assign(p,drop);tick(.01);assert.ok(p.key);assert.equal(drop,null);
+ Object.assign(p,cage);interact();
+`;
+const die=`
+ for(let attempt=0;attempt<3;attempt++){
+  p.hp=1;p.inv=0;hit();assert.equal(p.lives,2-attempt);
+  hit();assert.equal(p.lives,2-attempt);
+  if(attempt<2){assert.equal(mode,'retry');$('dialog').lastChild.firstChild.onclick();assert.equal(p.hp,16)}
+ }
+`;
+run('test_derrotar_enemigo_suma_puntos',`{${begin}const e=enemies[0];damage(e,e.hp);assert.equal(p.score,50);damage(e,50);assert.equal(p.score,50)}`);
+run('test_derrotar_jefe_siguiente_nivel',`{${begin}${killBoss}Object.assign(p,door);interact();assert.equal(level,2);assert.equal(p.score,250)}`);
+run('test_nivel_bloqueado_lanza_error',`{${begin}assert.throws(enterNextLevel,NivelBloqueadoError);Object.assign(p,door);interact();assert.equal(level,1);assert.match(toast,/Derrota/)}`);
+run('test_acumular_experiencia_sube_nivel',`{${begin}for(const e of enemies.slice(0,3))damage(e,e.hp);assert.equal(p.xp,90);assert.equal(heroLevel(),2);hud();assert.match($('rank').textContent,/nivel 2/)}`);
+run('test_equipar_armadura_elemental_actualiza_stats',`{
+ ${begin}input('1');assert.equal(attackPower(p.weapon),19);
+ input('3');attack();assert.equal(shots.at(-1).dmg,24);
+ ${killBoss}assert.equal(p.armor,2);input('r');assert.equal(p.armor,1);
+ const [x,y]=HAZ[1][0];Object.assign(p,{x,y});tick(.01);assert.equal(p.hp,16);
+ input('z');assert.equal(p.armor,2);tick(.01);assert.equal(p.hp,15);
+ input('y');assert.equal(p.armor,1);
+}`);
+run('test_game_over',`{start(1);${die}assert.equal(mode,'end');assert.equal(results[0].win,false)}`);
+run('test_completa_juego_al_rescatar_princesa',`{start(1);${rescue}assert.equal(mode,'end');assert.equal(results[0].win,true)}`);
+run('test_elegir_modo_y_asignar_vidas',`{
+ for(const count of [1,2]){menu();const buttons=$('dialog').lastChild.children;assert.equal(buttons.length,2);buttons[count-1].onclick();assert.equal(players.length,count);assert.ok(Object.isSealed(players));assert.ok(players.every(player=>player.lives===3))}
+}`);
+run('test_cambiar_turno',`{
+ for(const win of [false,true]){
+  start(2);
+  if(win){${rescue}}else{${die}}
+  assert.equal(mode,'handoff');assert.equal(turn,0);
+  $('dialog').lastChild.firstChild.onclick();
+  assert.equal(turn,1);assert.equal(p,players[1]);assert.equal(level,0);
+  assert.equal(p.lives,3);assert.equal(p.score,0);
+  ${die}assert.equal(mode,'end');assert.equal(results.length,2);assert.equal(results[0].win,win);
+ }
+}`);
+run('test_estructuras_en_juego',`{
+ ${begin}
+ const seenEvents=[],queue=new EventQueue();
+ queue.add(5,()=>seenEvents.push('tarde'));queue.add(2,()=>seenEvents.push('primero'));queue.add(2,()=>seenEvents.push('segundo'));
+ queue.runDue(2);assert.equal(seenEvents.join(','),'primero,segundo');queue.runDue(5);assert.equal(seenEvents.at(-1),'tarde');
+ const [x,y]=ROCKS[1][0];assert.ok(occupied.has(positionKey(x,y)));assert.ok(solid(x,y));
+ const enemy={x:x-100,y,r:15},target={x:x+100,y};
+ assert.equal(clearPath(enemy,target,10),false);
+ const path=findEnemyPath(enemy,target);assert.ok(path.length>2);
+ for(let i=1;i<path.length;i++)assert.ok(path[i-1].neighbors.includes(path[i]));
+ prepareEnemyAttack(enemies[0],0);events.runDue(time+1);assert.equal(shots.length,1);
+ draw();
+}`);
