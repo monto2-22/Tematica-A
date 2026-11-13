@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorldCave — Los cuatro elementos</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body><main>
+<header><div class="brand"><span class="sigil">◈</span> WorldCave</div><span class="tag">Aventura elemental · 01—04</span><div class="tools"><button id="map" aria-label="Mostrar u ocultar minimapa">Mapa</button><button id="pause">Pausa</button></div></header>
+<div class="board">
+<div class="stage"><canvas id="game" width="900" height="540" aria-label="Mapa del juego WorldCave"></canvas><div class="overlay" id="overlay"><div class="dialog" id="dialog"></div></div></div>
+<aside>
+<div><div class="eyebrow" id="area"></div><h2 id="name"></h2><div class="trail" id="player"></div></div>
+<div class="stat"><div class="label">Salud</div><div class="hearts" id="hearts"></div><div class="life" id="lives"></div></div>
+<div class="stat"><div class="label" id="score"></div><div class="xp"><i id="xp"></i></div><div class="trail" id="rank"></div></div>
+<div class="stat"><div class="label">Armas · 1 a 5</div><div class="inventory" id="weapons"></div><div class="trail" id="armor"></div><div class="inventory" id="armorList"></div></div>
+<div class="stat"><div class="label">Objetivo</div><p class="mission" id="mission"></p><div class="trail" id="hint"></div></div>
+</aside></div>
+<div class="touch"><div><button data-key="arrowleft" aria-label="Izquierda">◀</button><button data-key="arrowup" aria-label="Arriba">▲</button><button data-key="arrowdown" aria-label="Abajo">▼</button><button data-key="arrowright" aria-label="Derecha">▶</button></div><div><button data-key=" ">Atacar</button><button data-key="e">Usar</button></div></div>
+<div class="foot"><span><kbd>WASD</kbd> / <kbd>↑↓←→</kbd> Mover</span><span><kbd>Espacio</kbd> Atacar</span><span><kbd>J</kbd> Espada</span><span><kbd>E</kbd> Interactuar</span><span><kbd>R</kbd> Armadura</span><span><kbd>M</kbd> Mapa</span><span><kbd>P</kbd> Pausa</span></div>
+</main>
+<script src="game.js"></script></body></html>
+
