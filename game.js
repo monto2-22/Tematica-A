@@ -52,6 +52,17 @@ function show(s){
 function menu(){p=fresh();load(0);show('menu')}
 function finish(win){results.push({win,score:p.score});show(count===2&&turn===0?'handoff':'end')}
 const bossAlive=()=>enemies.some(e=>e.boss&&e.hp>0);
+function damage(e,d){if(e.hp<=0)return;e.hp=Math.max(0,e.hp-d);e.flash=.12;sparks(e.x,e.y,COL[level],e.hp?5:17);if(!e.hp)award(e)}
+function attack(sword=false){
+ if(!level||p.cd>0)return;
+ const el=sword?0:p.weapon,boost=Math.floor(p.xp/160)*2;
+ p.cd=el?.36:.31;
+ let target=null,best=el?300:77;
+ for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e),facing=((e.x-p.x)*p.dir.x+(e.y-p.y)*p.dir.y)/(d||1);if(d<best&&(facing>-.23||d<45)){target=e;best=d}}
+ const dx=target?target.x-p.x:p.dir.x,dy=target?target.y-p.y:p.dir.y,l=Math.hypot(dx,dy)||1;
+ if(el){shots.push({x:p.x+dx/l*18,y:p.y+dy/l*18,vx:dx/l*480,vy:dy/l*480,life:.78,el,friendly:true,dmg:(el===WEAK[level]?24:13)+boost})}
+ else {fx.push({x:p.x,y:p.y,life:.16,max:.16,el:0,arc:Math.atan2(dy,dx)});if(target)damage(target,19+boost)}
+}
 function solid(x,y,r=12){return x<50+r||x>MW-50-r||y<47+r||y>MH-47-r||ROCKS[level].some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r)}
 function move(o,dx,dy,r){if(!solid(o.x+dx,o.y,r))o.x+=dx;if(!solid(o.x,o.y+dy,r))o.y+=dy}
 function discover(){const x=Math.floor(p.x/70),y=Math.floor(p.y/70);seen.add(x+','+y)}
@@ -60,6 +71,7 @@ function tick(dt){
  let x=+(keys.has('d')||keys.has('arrowright'))- +(keys.has('a')||keys.has('arrowleft')),
  y=+(keys.has('s')||keys.has('arrowdown'))- +(keys.has('w')||keys.has('arrowup'));
  if(x||y){let n=Math.hypot(x,y);p.dir={x:x/n,y:y/n};move(p,p.dir.x*220*dt,p.dir.y*220*dt,12);discover()}
+ if(keys.has('j'))attack(true);else if(keys.has(' '))attack();
  for(const e of enemies){
   if(!e.hp)continue;let d=dist(p,e),a=Math.atan2(p.y-e.y,p.x-e.x);
   e.flash=Math.max(0,e.flash-dt);e.dir=p.x<e.x?-1:1;
@@ -71,4 +83,12 @@ function tick(dt){
   }
   if(d<e.r+14)hit();if(mode!=='play')return;
  }
+ for(const b of shots){
+  b.x+=b.vx*dt;b.y+=b.vy*dt;b.life-=dt;
+  if(b.life<=0||solid(b.x,b.y,0)){b.life=0;continue}
+  if(b.friendly){const e=enemies.find(e=>e.hp>0&&dist(b,e)<e.r+8);if(e){damage(e,b.dmg);b.life=0}}
+  else if(dist(b,p)<18){hit();b.life=0}
+  if(mode!=='play')return;
+ }
+ shots=shots.filter(b=>b.life>0);
 }
