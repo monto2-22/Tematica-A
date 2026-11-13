@@ -40,7 +40,7 @@ const fresh=()=>({x:spawn.x,y:spawn.y,hp:16,lives:3,score:0,xp:0,weapons:[0],arm
 // Turnos locales: el arreglo tiene exactamente una o dos posiciones por partida.
 let players=[fresh()];
 // Montículo mínimo: fecha de ejecución y orden de llegada para los empates.
-class EventQueue {
+class ColaPrioridad {
  constructor(){this.heap=[];this.sequence=0}
  static before(a,b){return a.at<b.at||(a.at===b.at&&a.order<b.order)}
  add(at,run){
@@ -48,7 +48,7 @@ class EventQueue {
   let i=h.length;h.push(event);
   while(i>0){
    const parent=(i-1)>>1;
-   if(!EventQueue.before(event,h[parent]))break;
+   if(!ColaPrioridad.before(event,h[parent]))break;
    h[i]=h[parent];i=parent;
   }
   h[i]=event;
@@ -59,8 +59,8 @@ class EventQueue {
   let i=0;
   while(i*2+1<h.length){
    let child=i*2+1;
-   if(child+1<h.length&&EventQueue.before(h[child+1],h[child]))child++;
-   if(!EventQueue.before(h[child],last))break;
+   if(child+1<h.length&&ColaPrioridad.before(h[child+1],h[child]))child++;
+   if(!ColaPrioridad.before(h[child],last))break;
    h[i]=h[child];i=child;
   }
   h[i]=last;return first;
@@ -69,15 +69,15 @@ class EventQueue {
 }
 let events;
 // Pilas LIFO de cambios manuales de equipamiento. No rebobinan el combate.
-let undoStack=[],redoStack=[];
+let pilaDeshacer=[],pilaRehacer=[];
 function equip(slot,value){
  const items=slot==='weapon'?p.weapons:p.armors;
  if(!items.includes(value)||p[slot]===value)return;
- undoStack.push({slot,before:p[slot],after:value});
- redoStack.length=0;p[slot]=value;
+ pilaDeshacer.push({slot,before:p[slot],after:value});
+ pilaRehacer.length=0;p[slot]=value;
 }
 function replayEquipment(redo){
- const from=redo?redoStack:undoStack,to=redo?undoStack:redoStack;
+ const from=redo?pilaRehacer:pilaDeshacer,to=redo?pilaDeshacer:pilaRehacer;
  const change=from.pop();
  if(!change){tell(redo?'No hay cambios para rehacer':'No hay cambios para deshacer');return}
  p[change.slot]=redo?change.after:change.before;
@@ -85,34 +85,34 @@ function replayEquipment(redo){
  tell((redo?'Rehecho: ':'Deshecho: ')+ELEM[p[change.slot]]);
 }
 const CELL=32, MAX_RADIUS=32;
-let occupied, routes;
+let matrizDispersa, grafoAdyacencia;
 const cellKey=(col,row)=>row*Math.ceil(MW/CELL)+col;
 const positionKey=(x,y)=>cellKey(Math.floor(x/CELL),Math.floor(y/CELL));
 // Matriz dispersa: solo se crean entradas en las celdas próximas a una roca.
 function buildObstacleGrid(){
- occupied=new Map();
+ matrizDispersa=new Map();
  for(const rock of zonaActual().rocks){
   const [x,y,r]=rock,reach=r+MAX_RADIUS;
   for(let row=Math.floor((y-reach)/CELL);row<=Math.floor((y+reach)/CELL);row++){
    for(let col=Math.max(0,Math.floor((x-reach)/CELL));col<=Math.min(Math.ceil(MW/CELL)-1,Math.floor((x+reach)/CELL));col++){
     const key=cellKey(col,row);
-    if(!occupied.has(key))occupied.set(key,[]);
-    occupied.get(key).push(rock);
+    if(!matrizDispersa.has(key))matrizDispersa.set(key,[]);
+    matrizDispersa.get(key).push(rock);
    }
   }
  }
 }
 // Grafo disperso: cada nodo guarda solo sus vecinos transitables.
 function buildRoutes(){
- routes=new Map();
+ grafoAdyacencia=new Map();
  for(let y=CELL/2;y<MH;y+=CELL){
   for(let x=CELL/2;x<MW;x+=CELL){
-   if(!solid(x,y,20))routes.set(positionKey(x,y),{x,y,neighbors:[]});
+   if(!solid(x,y,20))grafoAdyacencia.set(positionKey(x,y),{x,y,neighbors:[]});
   }
  }
- for(const node of routes.values()){
+ for(const node of grafoAdyacencia.values()){
   for(const [dx,dy] of [[CELL,0],[-CELL,0],[0,CELL],[0,-CELL]]){
-   const neighbor=routes.get(positionKey(node.x+dx,node.y+dy));
+   const neighbor=grafoAdyacencia.get(positionKey(node.x+dx,node.y+dy));
    if(neighbor&&dist(node,neighbor)===CELL&&!solid(node.x+dx/2,node.y+dy/2,20))node.neighbors.push(neighbor);
   }
  }
@@ -130,7 +130,7 @@ function nearbyNode(point,radius,reverse=false){
  for(let y=row-2;y<=row+2;y++){
   for(let x=col-2;x<=col+2;x++){
    if(x<0||x>=Math.ceil(MW/CELL))continue;
-   const node=routes.get(cellKey(x,y));
+   const node=grafoAdyacencia.get(cellKey(x,y));
    if(!node||dist(node,point)>=distance)continue;
    if(!(reverse?clearPath(node,point,radius):clearPath(point,node,radius)))continue;
    closest=node;distance=dist(node,point);
@@ -142,18 +142,24 @@ function findEnemyPath(enemy,target){
  const radius=enemy.r*.65;
  const start=nearbyNode(enemy,radius),goal=nearbyNode(target,radius,true);
  if(!start||!goal)return [];
- // Todas las aristas miden lo mismo; la búsqueda en anchura halla la ruta mínima.
- const frontier=[start],previous=new Map([[start,null]]);
- for(let i=0;i<frontier.length;i++){
-  const node=frontier[i];
+ // Dijkstra: los pasos cerca de obstáculos cuestan más que los pasos despejados.
+ const frontier=new ColaPrioridad(),previous=new Map([[start,null]]);
+ const costs=new Map([[start,0]]);
+ frontier.add(0,start);
+ while(frontier.heap.length){
+  const {at:cost,run:node}=frontier.take();
+  if(cost!==costs.get(node))continue;
   if(node===goal){
    const path=[];
    for(let step=goal;step;step=previous.get(step))path.push(step);
    return path.reverse();
   }
   for(const neighbor of node.neighbors){
-   if(previous.has(neighbor))continue;
-   previous.set(neighbor,node);frontier.push(neighbor);
+   const nextCost=cost+CELL+(solid(neighbor.x,neighbor.y,30)?CELL*.5:0);
+   if(nextCost>=(costs.get(neighbor)??Infinity))continue;
+   costs.set(neighbor,nextCost);
+   previous.set(neighbor,node);
+   frontier.add(nextCost,neighbor);
   }
  }
  return [];
@@ -178,8 +184,8 @@ function load(n){
  nivelActual=n-1;
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
  enemies=n?spots.slice(0,zonaActual().difficulty.minions).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
- events=new EventQueue();
- undoStack=[];redoStack=[];
+ events=new ColaPrioridad();
+ pilaDeshacer=[];pilaRehacer=[];
  buildObstacleGrid();buildRoutes();
  cx=0;cy=MH-H;discover();
 }
@@ -224,7 +230,7 @@ function enterNextLevel(){
  load(level+1);
 }
 function interact(){
- if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;undoStack=[];redoStack=[];tell('Varita de Agua y armadura de Fuego equipadas');return}
+ if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;pilaDeshacer=[];pilaRehacer=[];tell('Varita de Agua y armadura de Fuego equipadas');return}
  if(dist(p,door)>68)return;
  if(level<4){
   try{enterNextLevel()}catch(error){if(!(error instanceof NivelBloqueadoError))throw error;tell(error.message)}
@@ -240,7 +246,7 @@ function award(e){
  if(!p.weapons.includes(level))p.weapons.push(level);
  const next=level%4+1;if(!p.armors.includes(next))p.armors.push(next);
  if(level===4){drop={x:e.x,y:e.y};tell('¡Guardián vencido! Recoge la llave dorada')}
- else {p.armor=next;undoStack=[];redoStack=[];tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
+ else {p.armor=next;pilaDeshacer=[];pilaRehacer=[];tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
 }
 function damage(e,d){if(e.hp<=0)return;e.hp=Math.max(0,e.hp-d);e.flash=.12;sparks(e.x,e.y,COL[level],e.hp?5:17);if(!e.hp)award(e)}
 const heroLevel=()=>1+Math.floor(p.xp/80);
@@ -258,7 +264,7 @@ function attack(sword=false){
 }
 function solid(x,y,r=12){
  if(x<50+r||x>MW-50-r||y<47+r||y>MH-47-r)return true;
- return (occupied.get(positionKey(x,y))??[]).some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r);
+ return (matrizDispersa.get(positionKey(x,y))??[]).some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r);
 }
 function move(o,dx,dy,r){if(!solid(o.x+dx,o.y,r))o.x+=dx;if(!solid(o.x,o.y+dy,r))o.y+=dy}
 function discover(){const x=Math.floor(p.x/70),y=Math.floor(p.y/70);seen.add(x+','+y)}
