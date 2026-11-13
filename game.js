@@ -23,13 +23,19 @@ const spots=[[387,398],[575,324],[786,452],[892,252],[538,122],[672,651],[945,45
 const keys=new Set();let mode='menu',count=1,turn=0,results=[],p,level,enemies,shots,fx,seen,opened,drop,potion,potionAt,time=0,toast='',toastAt=0,mission='',near='',mapOn=true,cx=0,cy=0;
 let seed=1;const rand=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
 const fresh=()=>({x:spawn.x,y:spawn.y,hp:16,lives:3,score:0,xp:0,weapons:[0],armors:[],weapon:0,armor:0,earned:new Set(),dir:{x:1,y:0},cd:0,inv:0,key:false});
+// Turnos locales: el arreglo tiene exactamente una o dos posiciones por partida.
+let players=[fresh()];
 function load(n){
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
  enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  cx=0;cy=MH-H;discover();
 }
 function foe(x,y,id,boss){const max=boss?85+level*24:25+level*8;return{x,y,id,boss,max,hp:max,r:boss?30:15,cd:.9+id%4*.32,wind:0,dir:1,flash:0};}
-function start(n){count=n;turn=0;results=[];p=fresh();load(0);show('play');}
+function start(n){
+ if(n!==1&&n!==2)throw new RangeError('Se requiere uno o dos jugadores');
+ players=Array.from({length:n},fresh);Object.seal(players);
+ count=players.length;turn=0;results=new Array(count);p=players[turn];load(0);show('play');
+}
 function tell(s){toast=s;toastAt=time+3.3}
 function show(s){
  mode=s;keys.clear();$('overlay').hidden=s==='play';
@@ -37,7 +43,7 @@ function show(s){
  menu:['Aventura 2D','WorldCave','Los cuatro elementos','Desciende por cuatro cuevas, domina sus elementos y libera a la princesa.',[['1 jugador',()=>start(1)],['2 por turnos',()=>start(2)]]],
  pause:['Expedición en pausa','Pausa','','Agua vence a Fuego, Tierra a Agua, Viento a Tierra y Fuego a Viento.',[['Continuar',()=>show('play')],['Volver al menú',menu]]],
  retry:['Punto de control','Has caído','','Te quedan '+p.lives+' '+(p.lives===1?'vida':'vidas')+'. Reintenta esta zona con ocho corazones.',[['Reintentar',()=>{p.hp=16;load(level);show('play')}]]],
- handoff:['Fin del primer turno','Jugador 2','','Jugador 1: '+(results[0]?.score??0)+' puntos. Ahora empieza tu aventura desde la superficie.',[['Iniciar turno',()=>{turn=1;p=fresh();load(0);show('play')}]]],
+ handoff:['Fin del primer turno','Jugador 2','','Jugador 1: '+(results[0]?.score??0)+' puntos. Ahora empieza tu aventura desde la superficie.',[['Iniciar turno',()=>{turn=1;p=players[turn];load(0);show('play')}]]],
  end:[count===2?'Resultados finales':'Fin de la aventura',results.some(r=>r.win)?'¡Princesa rescatada!':'Expedición terminada','',results.map((r,i)=>'Jugador '+(i+1)+': '+r.score+' puntos · '+(r.win?'rescate completado':'sin vidas')).join('\n'),[['Volver al menú',menu]]]
  };
  if(s!=='play'){
@@ -49,16 +55,25 @@ function show(s){
  }else document.activeElement?.blur();
  hud();
 }
-function menu(){p=fresh();load(0);show('menu')}
-function finish(win){results.push({win,score:p.score});show(count===2&&turn===0?'handoff':'end')}
+function menu(){count=1;turn=0;results=[];p=fresh();load(0);show('menu')}
+function finish(win){results[turn]={win,score:p.score};show(count===2&&turn===0?'handoff':'end')}
 function hit(){if(p.inv>0||mode!=='play')return;p.hp--;p.inv=.72;sparks(p.x,p.y,'#ff7891',10);if(!p.hp){p.lives--;if(p.lives)show('retry');else finish(false)}}
 const bossAlive=()=>enemies.some(e=>e.boss&&e.hp>0);
+class NivelBloqueadoError extends Error {}
+function enterNextLevel(){
+ if(level===0&&!opened)throw new NivelBloqueadoError('Busca primero el cofre de la superficie');
+ if(level>0&&bossAlive())throw new NivelBloqueadoError('Derrota al guardián de '+Z[level][0]);
+ if(level>=4)throw new RangeError('No hay más cuevas');
+ load(level+1);
+}
 function interact(){
  if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;tell('Varita de Agua y armadura de Fuego equipadas');return}
  if(dist(p,door)>68)return;
- if(!level){if(!opened){tell('Busca primero el cofre de la superficie');return}load(1);return}
+ if(level<4){
+  try{enterNextLevel()}catch(error){if(!(error instanceof NivelBloqueadoError))throw error;tell(error.message)}
+  return;
+ }
  if(bossAlive()){tell('Derrota al guardián de '+Z[level][0]);return}
- if(level<4){load(level+1);return}
  if(p.key)finish(true);else tell('Recoge la llave que dejó el guardián');
 }
 function award(e){
@@ -71,15 +86,18 @@ function award(e){
  else {p.armor=next;tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
 }
 function damage(e,d){if(e.hp<=0)return;e.hp=Math.max(0,e.hp-d);e.flash=.12;sparks(e.x,e.y,COL[level],e.hp?5:17);if(!e.hp)award(e)}
+const heroLevel=()=>1+Math.floor(p.xp/80);
+const attackPower=el=>(el===0?19:el===WEAK[level]?24:13)+Math.floor(p.xp/160)*2;
+const protectedFrom=element=>p.armor===element;
 function attack(sword=false){
  if(!level||p.cd>0)return;
- const el=sword?0:p.weapon,boost=Math.floor(p.xp/160)*2;
+ const el=sword?0:p.weapon;
  p.cd=el?.36:.31;
  let target=null,best=el?300:77;
  for(const e of enemies){if(e.hp<=0)continue;const d=dist(p,e),facing=((e.x-p.x)*p.dir.x+(e.y-p.y)*p.dir.y)/(d||1);if(d<best&&(facing>-.23||d<45)){target=e;best=d}}
  const dx=target?target.x-p.x:p.dir.x,dy=target?target.y-p.y:p.dir.y,l=Math.hypot(dx,dy)||1;
- if(el){shots.push({x:p.x+dx/l*18,y:p.y+dy/l*18,vx:dx/l*480,vy:dy/l*480,life:.78,el,friendly:true,dmg:(el===WEAK[level]?24:13)+boost})}
- else {fx.push({x:p.x,y:p.y,life:.16,max:.16,el:0,arc:Math.atan2(dy,dx)});if(target)damage(target,19+boost)}
+ if(el){shots.push({x:p.x+dx/l*18,y:p.y+dy/l*18,vx:dx/l*480,vy:dy/l*480,life:.78,el,friendly:true,dmg:attackPower(el)})}
+ else {fx.push({x:p.x,y:p.y,life:.16,max:.16,el:0,arc:Math.atan2(dy,dx)});if(target)damage(target,attackPower(el))}
 }
 function solid(x,y,r=12){return x<50+r||x>MW-50-r||y<47+r||y>MH-47-r||ROCKS[level].some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r)}
 function move(o,dx,dy,r){if(!solid(o.x+dx,o.y,r))o.x+=dx;if(!solid(o.x,o.y+dy,r))o.y+=dy}
@@ -118,7 +136,7 @@ function tick(dt){
   if(mode!=='play')return;
  }
  shots=shots.filter(b=>b.life>0);
- if(p.armor!==level&&HAZ[level].some(([x,y,rx,ry])=>((p.x-x)/rx)**2+((p.y-y)/ry)**2<1))hit();
+ if(!protectedFrom(level)&&HAZ[level].some(([x,y,rx,ry])=>((p.x-x)/rx)**2+((p.y-y)/ry)**2<1))hit();
  if(mode!=='play')return;
  if(drop&&dist(p,drop)<27){drop=null;p.key=true;tell('Llave recogida · Abre la jaula con E')}
  if(level>1&&p.hp<16&&!potion&&time>=potionAt)spawnPotion();
@@ -144,7 +162,7 @@ function hud(){
  $('player').textContent=count===2?'Jugador '+(turn+1)+' de 2':'Expedición individual';
  $('hearts').setAttribute('aria-label',p.hp/2+' de 8 corazones');
  $('hearts').innerHTML=Array.from({length:8},(_,i)=>'<span class="heart" aria-hidden="true">♥<i style="width:'+clamp((p.hp-i*2)*50,0,100)+'%">♥</i></span>').join('');
- $('lives').textContent='Vidas: '+p.lives+' / 3';$('score').textContent=p.score+' puntos';$('rank').textContent='Héroe nivel '+(1+Math.floor(p.xp/80))+' · '+p.xp+' XP';$('xp').style.width=(p.xp%80/80*100)+'%';
+ $('lives').textContent='Vidas: '+p.lives+' / 3';$('score').textContent=p.score+' puntos';$('rank').textContent='Héroe nivel '+heroLevel()+' · '+p.xp+' XP';$('xp').style.width=(p.xp%80/80*100)+'%';
  $('armor').textContent='Armadura: '+(p.armor?ELEM[p.armor]:'ninguna')+(p.key?' · Llave obtenida':'');
  const stamp=p.weapons.join()+':'+p.weapon+'|'+p.armors.join()+':'+p.armor;
  if($('weapons').dataset.stamp!==stamp){
