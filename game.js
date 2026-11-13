@@ -273,3 +273,6 @@ function draw(){
  const shade=c.createRadialGradient(W/2,H/2,135,W/2,H/2,W*.66);shade.addColorStop(0,'#100b1a00');shade.addColorStop(1,'#08071388');c.fillStyle=shade;c.fillRect(0,0,W,H);
  if(mapOn&&mode!=='menu')mini();
 }
+let last=0,lastHud=-1;
+function frame(ms){const dt=Math.min(.034,(ms-last)/1000);last=ms;if(mode==='play')tick(dt);if(ms-lastHud>100){hud();lastHud=ms}draw();requestAnimationFrame(frame)}
+menu();requestAnimationFrame(frame);
