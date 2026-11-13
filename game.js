@@ -123,3 +123,16 @@ function tick(dt){
  if(level>1&&p.hp<16&&!potion&&time>=potionAt)spawnPotion();
  if(potion&&dist(p,potion)<28){p.hp=Math.min(16,p.hp+4);potion=null;potionAt=time+16+rand()*7;tell('Poción: +2 corazones')}
 }
+function input(k){
+ if(k==='p'){if(mode==='play')show('pause');else if(mode==='pause')show('play');return}
+ if(k==='m'){mapOn=!mapOn;return}
+ if(mode!=='play')return;
+ if(k==='e')interact();
+ if(k==='r'&&p.armors.length)p.armor=p.armors[(p.armors.indexOf(p.armor)+1)%p.armors.length];
+ if(/^[1-5]$/.test(k)&&p.weapons.includes(+k-1))p.weapon=+k-1;
+}
+const bound=['w','a','s','d','arrowup','arrowleft','arrowdown','arrowright',' ','j','e','r','m','p','1','2','3','4','5'];
+window.addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(!bound.includes(k)||(!['play','pause'].includes(mode)))return;e.preventDefault();keys.add(k);if(!e.repeat)input(k)});
+window.addEventListener('keyup',e=>keys.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>{keys.clear();if(mode==='play')show('pause')});
+document.querySelectorAll('[data-key]').forEach(b=>{const k=b.dataset.key;b.onpointerdown=e=>{e.preventDefault();b.setPointerCapture(e.pointerId);if(mode==='play'){keys.add(k);input(k)}};b.onpointerup=b.onpointercancel=b.onlostpointercapture=()=>keys.delete(k)});
+$('map').onclick=()=>input('m');$('pause').onclick=()=>input('p');
