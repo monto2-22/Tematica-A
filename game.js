@@ -243,3 +243,9 @@ function item(q,type){
  if(type==='key'){c.strokeStyle='#ffd66c';c.lineWidth=3;c.beginPath();c.arc(q.x-6,yy,5,0,7);c.stroke();line([[q.x-1,yy],[q.x+11,yy],[q.x+11,yy+4]],'#ffd66c',3);label('LLAVE',q.x,yy-14)}
  else{ellipse(q.x,yy+2,8,9,'#f76c95');ellipse(q.x-2,yy,2,4,'#ffc2d1');line([[q.x-3,yy-8],[q.x+3,yy-8]],'#ffdfa0',4);label('POCIÓN',q.x,yy-14)}
 }
+function mini(){
+ const x=W-169,y=15,s=.12;
+ c.fillStyle='#151522eb';c.fillRect(x-7,y-6,164,111);c.strokeStyle='#8c789688';c.lineWidth=1;c.strokeRect(x-7,y-6,164,111);
+ for(const q of seen){const [a,b]=q.split(',').map(Number);c.fillStyle='#857894';c.fillRect(x+a*70*s,y+b*70*s,70*s-1,70*s-1)}
+ ellipse(x+p.x*s,y+p.y*s,3.5,3.5,'#ffda93');
+}
