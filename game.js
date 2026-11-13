@@ -54,10 +54,100 @@ class EventQueue {
  runDue(now){while(this.heap.length&&this.heap[0].at<=now)this.take().run()}
 }
 let events;
+const CELL=32, MAX_RADIUS=32;
+let occupied, routes;
+const cellKey=(col,row)=>row*Math.ceil(MW/CELL)+col;
+const positionKey=(x,y)=>cellKey(Math.floor(x/CELL),Math.floor(y/CELL));
+// Matriz dispersa: solo se crean entradas en las celdas próximas a una roca.
+function buildObstacleGrid(){
+ occupied=new Map();
+ for(const rock of ROCKS[level]){
+  const [x,y,r]=rock,reach=r+MAX_RADIUS;
+  for(let row=Math.floor((y-reach)/CELL);row<=Math.floor((y+reach)/CELL);row++){
+   for(let col=Math.max(0,Math.floor((x-reach)/CELL));col<=Math.min(Math.ceil(MW/CELL)-1,Math.floor((x+reach)/CELL));col++){
+    const key=cellKey(col,row);
+    if(!occupied.has(key))occupied.set(key,[]);
+    occupied.get(key).push(rock);
+   }
+  }
+ }
+}
+// Grafo disperso: cada nodo guarda solo sus vecinos transitables.
+function buildRoutes(){
+ routes=new Map();
+ for(let y=CELL/2;y<MH;y+=CELL){
+  for(let x=CELL/2;x<MW;x+=CELL){
+   if(!solid(x,y,20))routes.set(positionKey(x,y),{x,y,neighbors:[]});
+  }
+ }
+ for(const node of routes.values()){
+  for(const [dx,dy] of [[CELL,0],[-CELL,0],[0,CELL],[0,-CELL]]){
+   const neighbor=routes.get(positionKey(node.x+dx,node.y+dy));
+   if(neighbor&&dist(node,neighbor)===CELL&&!solid(node.x+dx/2,node.y+dy/2,20))node.neighbors.push(neighbor);
+  }
+ }
+}
+function clearPath(from,to,radius){
+ const steps=Math.max(1,Math.ceil(dist(from,to)/10));
+ for(let i=1;i<=steps;i++){
+  if(solid(from.x+(to.x-from.x)*i/steps,from.y+(to.y-from.y)*i/steps,radius))return false;
+ }
+ return true;
+}
+function nearbyNode(point,radius,reverse=false){
+ const col=Math.floor(point.x/CELL),row=Math.floor(point.y/CELL);
+ let closest=null,distance=Infinity;
+ for(let y=row-2;y<=row+2;y++){
+  for(let x=col-2;x<=col+2;x++){
+   if(x<0||x>=Math.ceil(MW/CELL))continue;
+   const node=routes.get(cellKey(x,y));
+   if(!node||dist(node,point)>=distance)continue;
+   if(!(reverse?clearPath(node,point,radius):clearPath(point,node,radius)))continue;
+   closest=node;distance=dist(node,point);
+  }
+ }
+ return closest;
+}
+function findEnemyPath(enemy,target){
+ const radius=enemy.r*.65;
+ const start=nearbyNode(enemy,radius),goal=nearbyNode(target,radius,true);
+ if(!start||!goal)return [];
+ // Todas las aristas miden lo mismo; la búsqueda en anchura halla la ruta mínima.
+ const frontier=[start],previous=new Map([[start,null]]);
+ for(let i=0;i<frontier.length;i++){
+  const node=frontier[i];
+  if(node===goal){
+   const path=[];
+   for(let step=goal;step;step=previous.get(step))path.push(step);
+   return path.reverse();
+  }
+  for(const neighbor of node.neighbors){
+   if(previous.has(neighbor))continue;
+   previous.set(neighbor,node);frontier.push(neighbor);
+  }
+ }
+ return [];
+}
+function pursue(enemy,dt){
+ const radius=enemy.r*.65;
+ let target=p;
+ if(!clearPath(enemy,p,radius)){
+  if(time>=(enemy.routeAt??0)){
+   enemy.path=findEnemyPath(enemy,p);enemy.pathIndex=0;enemy.routeAt=time+.4;
+  }
+  while(enemy.path[enemy.pathIndex]&&dist(enemy,enemy.path[enemy.pathIndex])<3)enemy.pathIndex++;
+  target=enemy.path[enemy.pathIndex]??p;
+ }
+ const distance=dist(enemy,target);
+ if(!distance)return;
+ const step=Math.min(distance,(43+level*9)*dt);
+ move(enemy,(target.x-enemy.x)*step/distance,(target.y-enemy.y)*step/distance,radius);
+}
 function load(n){
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
  enemies=n?spots.slice(0,n+3).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  events=new EventQueue();
+ buildObstacleGrid();buildRoutes();
  cx=0;cy=MH-H;discover();
 }
 function foe(x,y,id,boss){const max=boss?85+level*24:25+level*8;return{x,y,id,boss,max,hp:max,r:boss?30:15,cd:.9+id%4*.32,wind:0,dir:1,flash:0};}
@@ -129,7 +219,10 @@ function attack(sword=false){
  if(el){shots.push({x:p.x+dx/l*18,y:p.y+dy/l*18,vx:dx/l*480,vy:dy/l*480,life:.78,el,friendly:true,dmg:attackPower(el)})}
  else {fx.push({x:p.x,y:p.y,life:.16,max:.16,el:0,arc:Math.atan2(dy,dx)});if(target)damage(target,attackPower(el))}
 }
-function solid(x,y,r=12){return x<50+r||x>MW-50-r||y<47+r||y>MH-47-r||ROCKS[level].some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r)}
+function solid(x,y,r=12){
+ if(x<50+r||x>MW-50-r||y<47+r||y>MH-47-r)return true;
+ return (occupied.get(positionKey(x,y))??[]).some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r);
+}
 function move(o,dx,dy,r){if(!solid(o.x+dx,o.y,r))o.x+=dx;if(!solid(o.x,o.y+dy,r))o.y+=dy}
 function discover(){const x=Math.floor(p.x/70),y=Math.floor(p.y/70);seen.add(x+','+y)}
 function sparks(x,y,color,n){for(let i=0;i<n;i++){let a=rand()*Math.PI*2,v=35+rand()*96,life=.2+rand()*.27;fx.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,max:life,color})}}
@@ -152,8 +245,9 @@ function tick(dt){
   if(!e.hp)continue;let d=dist(p,e),a=Math.atan2(p.y-e.y,p.x-e.x);
   e.flash=Math.max(0,e.flash-dt);e.dir=p.x<e.x?-1:1;
   if(!e.wind&&d<(e.boss?440:250)){
-   e.cd-=dt;if(e.cd<=0)prepareEnemyAttack(e,a);
-   else if(d>(e.boss?113:49))move(e,Math.cos(a)*(43+level*9)*dt,Math.sin(a)*(43+level*9)*dt,e.r*.65);
+   if(clearPath(e,p,0))e.cd-=dt;
+   if(e.cd<=0&&clearPath(e,p,0))prepareEnemyAttack(e,a);
+   else if(d>(e.boss?113:49)||!clearPath(e,p,e.r*.65))pursue(e,dt);
   }
   if(d<e.r+14)hit();if(mode!=='play')return;
  }
