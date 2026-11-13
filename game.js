@@ -84,6 +84,7 @@ function attack(sword=false){
 function solid(x,y,r=12){return x<50+r||x>MW-50-r||y<47+r||y>MH-47-r||ROCKS[level].some(([a,b,k])=>Math.hypot(x-a,y-b)<k+r)}
 function move(o,dx,dy,r){if(!solid(o.x+dx,o.y,r))o.x+=dx;if(!solid(o.x,o.y+dy,r))o.y+=dy}
 function discover(){const x=Math.floor(p.x/70),y=Math.floor(p.y/70);seen.add(x+','+y)}
+function sparks(x,y,color,n){for(let i=0;i<n;i++){let a=rand()*Math.PI*2,v=35+rand()*96,life=.2+rand()*.27;fx.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,life,max:life,color})}}
 function spawnPotion(){
  for(let i=0;i<38;i++){let a=rand()*6.283,r=65+rand()*120,x=p.x+Math.cos(a)*r,y=p.y+Math.sin(a)*r;
  if(!solid(x,y,15)&&!HAZ[level].some(([a,b,w,h])=>((x-a)/w)**2+((y-b)/h)**2<1.2)&&!enemies.some(e=>e.hp&&dist(e,{x,y})<100)){
@@ -122,6 +123,8 @@ function tick(dt){
  if(drop&&dist(p,drop)<27){drop=null;p.key=true;tell('Llave recogida · Abre la jaula con E')}
  if(level>1&&p.hp<16&&!potion&&time>=potionAt)spawnPotion();
  if(potion&&dist(p,potion)<28){p.hp=Math.min(16,p.hp+4);potion=null;potionAt=time+16+rand()*7;tell('Poción: +2 corazones')}
+ for(const f of fx){f.life-=dt;f.x+=(f.vx||0)*dt;f.y+=(f.vy||0)*dt}fx=fx.filter(f=>f.life>0);
+ cx+=(clamp(p.x-W/2,0,MW-W)-cx)*Math.min(1,dt*7);cy+=(clamp(p.y-H/2,0,MH-H)-cy)*Math.min(1,dt*7);
 }
 function input(k){
  if(k==='p'){if(mode==='play')show('pause');else if(mode==='pause')show('play');return}
@@ -248,4 +251,25 @@ function mini(){
  c.fillStyle='#151522eb';c.fillRect(x-7,y-6,164,111);c.strokeStyle='#8c789688';c.lineWidth=1;c.strokeRect(x-7,y-6,164,111);
  for(const q of seen){const [a,b]=q.split(',').map(Number);c.fillStyle='#857894';c.fillRect(x+a*70*s,y+b*70*s,70*s-1,70*s-1)}
  ellipse(x+p.x*s,y+p.y*s,3.5,3.5,'#ffda93');
+}
+function draw(){
+ cacheTerrain();
+ c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,W,H);c.save();c.translate(-cx,-cy);c.drawImage(terrain,0,0);
+ for(const h of HAZ[level])hazard(...h);
+ if(!level){box();ellipse(spawn.x,spawn.y+40,19,10,'#211c26');ellipse(spawn.x,spawn.y+34,8,10,'#ffb06b');ellipse(spawn.x,spawn.y+38,4,6,'#ffeb8a')}
+ gate();
+ for(const e of enemies)if(!e.hp)ellipse(e.x,e.y,10,5,COL[level]+'45');
+ if(drop)item(drop,'key');if(potion)item(potion,'potion');
+ for(const e of [...enemies.filter(e=>e.hp),p].sort((a,b)=>a.y-b.y)){
+  if(e===p){actor(e,true,p.armor?COL[p.armor]:'#f5dfad',false,1);continue}
+  if(e.wind>0){ellipse(e.x,e.y+11,e.r+10,e.r*.59,COL[level]+'75');line([[e.x,e.y],[e.x+Math.cos(e.aim)*103,e.y+Math.sin(e.aim)*103]],COL[level]+'77',2)}
+  actor(e,false,e.flash?'#fff1dc':COL[level],e.boss,e.boss?1.65:.91);
+  if(e.boss||e.hp<e.max){const w=e.boss?83:31,y=e.y-(e.boss?68:33);c.fillStyle='#111018';c.fillRect(e.x-w/2,y,w,5);c.fillStyle=COL[level];c.fillRect(e.x-w/2,y,w*e.hp/e.max,5);if(e.boss)label('GUARDIÁN DE '+Z[level][0].toUpperCase(),e.x,y-7,COL[level],11)}
+ }
+ for(const b of shots){const tint=COL[b.el];line([[b.x-b.vx*.034,b.y-b.vy*.034],[b.x,b.y]],tint+'77',b.friendly?6:4);ellipse(b.x,b.y,b.friendly?6:5,b.friendly?6:5,tint);ellipse(b.x,b.y,2,2,'#fff1dc')}
+ for(const f of fx){c.globalAlpha=Math.min(1,f.life/f.max*2);if(f.arc!==undefined){c.beginPath();c.arc(f.x,f.y,39,f.arc-1,f.arc+1);c.strokeStyle='#ffebbf';c.lineWidth=5;c.stroke()}else ellipse(f.x,f.y,2.5,2.5,f.color)}c.globalAlpha=1;
+ if(mode==='play'&&near)label(near,p.x,p.y-42);
+ c.restore();
+ const shade=c.createRadialGradient(W/2,H/2,135,W/2,H/2,W*.66);shade.addColorStop(0,'#100b1a00');shade.addColorStop(1,'#08071388');c.fillStyle=shade;c.fillRect(0,0,W,H);
+ if(mapOn&&mode!=='menu')mini();
 }
