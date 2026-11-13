@@ -53,6 +53,14 @@ function menu(){p=fresh();load(0);show('menu')}
 function finish(win){results.push({win,score:p.score});show(count===2&&turn===0?'handoff':'end')}
 function hit(){if(p.inv>0||mode!=='play')return;p.hp--;p.inv=.72;sparks(p.x,p.y,'#ff7891',10);if(!p.hp){p.lives--;if(p.lives)show('retry');else finish(false)}}
 const bossAlive=()=>enemies.some(e=>e.boss&&e.hp>0);
+function interact(){
+ if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;tell('Varita de Agua y armadura de Fuego equipadas');return}
+ if(dist(p,door)>68)return;
+ if(!level){if(!opened){tell('Busca primero el cofre de la superficie');return}load(1);return}
+ if(bossAlive()){tell('Derrota al guardián de '+Z[level][0]);return}
+ if(level<4){load(level+1);return}
+ if(p.key)finish(true);else tell('Recoge la llave que dejó el guardián');
+}
 function award(e){
  const id=level+':'+e.id;
  if(!p.earned.has(id)){p.earned.add(id);p.score+=e.boss?250:50;p.xp+=e.boss?100:30}
@@ -111,6 +119,7 @@ function tick(dt){
  shots=shots.filter(b=>b.life>0);
  if(p.armor!==level&&HAZ[level].some(([x,y,rx,ry])=>((p.x-x)/rx)**2+((p.y-y)/ry)**2<1))hit();
  if(mode!=='play')return;
+ if(drop&&dist(p,drop)<27){drop=null;p.key=true;tell('Llave recogida · Abre la jaula con E')}
  if(level>1&&p.hp<16&&!potion&&time>=potionAt)spawnPotion();
  if(potion&&dist(p,potion)<28){p.hp=Math.min(16,p.hp+4);potion=null;potionAt=time+16+rand()*7;tell('Poción: +2 corazones')}
 }
