@@ -37,3 +37,16 @@ Ejecuta `node criterios.test.cjs` desde la carpeta del juego. Las pruebas usan e
 | Deshacer y rehacer | Dos pilas LIFO | Revierte o restaura el último cambio manual de equipamiento | Lista doble exige mantener un cursor | O(1) amortizado por operación de pila |
 
 Usa **Z** y **Y**, o los botones del inventario, para deshacer y rehacer cambios manuales de equipo. El historial se reinicia al cargar una zona, reintentar o recibir equipo automático. Estas acciones no restauran vida ni revierten el combate.
+
+## Plan técnico y dificultad
+
+La superficie es el punto de partida. El arreglo fijo niveles contiene solo las cuatro cuevas, con índices del 0 al 3. Los enemigos menores suman puntos y experiencia. Derrotar al jefe abre el descenso y el cuarto jefe deja la llave de la jaula.
+
+| Cueva | Enemigos menores | Salud del jefe | Proyectiles por ataque del jefe |
+|---|---:|---:|---:|
+| Fuego | 4 | 109 | 3 |
+| Agua | 5 | 140 | 4 |
+| Tierra | 6 | 176 | 5 |
+| Viento | 7 | 219 | 6 |
+
+En cada descenso también aumentan la salud y la velocidad de los enemigos menores, los proyectiles viajan más rápido y el tiempo para esquivarlos se reduce. El código usa el plan técnico de plan.md y las ocho estructuras de estructura.md.
