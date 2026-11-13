@@ -66,3 +66,29 @@ run('test_estructuras_en_juego',`{
  prepareEnemyAttack(enemies[0],0);events.runDue(time+1);assert.equal(shots.length,1);
  draw();
 }`);
+run('test_dificultad_crece_en_cada_cueva',`{
+ ${begin}
+ assert.equal(niveles.length,4);
+ assert.ok(Object.isFrozen(niveles));
+ assert.throws(()=>load(5),{name:'RangeError'});
+ assert.throws(()=>load(-1),{name:'RangeError'});
+ let previous;
+ for(let i=0;i<niveles.length;i++){
+  assert.equal(nivelActual,i);
+  const difficulty=zonaActual().difficulty,boss=enemies.find(e=>e.boss);
+  assert.equal(enemies.length,i+5);
+  assert.equal(boss.hp,difficulty.bossHP);
+  if(previous){
+   for(const key of ['minions','enemyHP','bossHP','speed','shotSpeed'])assert.ok(difficulty[key]>previous[key]);
+   for(const key of ['wind','recovery'])assert.ok(difficulty[key]<previous[key]);
+  }
+  prepareEnemyAttack(boss,0);
+  events.runDue(time+difficulty.wind);
+  assert.equal(shots.length,i+3);
+  assert.ok(Math.abs(Math.hypot(shots[0].vx,shots[0].vy)-difficulty.shotSpeed)<1e-8);
+  previous=difficulty;
+  damage(boss,boss.hp);
+  if(i<3)enterNextLevel();
+ }
+ assert.throws(enterNextLevel,{name:'RangeError'});
+}`);
