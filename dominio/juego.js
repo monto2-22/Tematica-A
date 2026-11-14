@@ -113,8 +113,9 @@ function findEnemyPath(enemy,target){
  const radius=enemy.r*.65;
  const start=nearbyNode(enemy,radius),goal=nearbyNode(target,radius,true);
  if(!start||!goal)return [];
- return rutaMinima(start,goal,(_,neighbor)=>CELL+(solid(neighbor.x,neighbor.y,30)?CELL*.5:0));
+ return rutaMinima(start,goal,costoRutaEnemiga);
 }
+const costoRutaEnemiga=(_,neighbor)=>CELL+(solid(neighbor.x,neighbor.y,30)?CELL*.5:0);
 
 function pursue(enemy,dt){
  const radius=enemy.r*.65;
