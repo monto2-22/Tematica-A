@@ -194,7 +194,7 @@ function interact(){
 }
 function award(e){
  const id=level+':'+e.id;
- if(!p.earned.has(id)){p.earned.add(id);p.score+=e.boss?250:50;p.xp+=e.boss?100:30}
+ if(!p.earned.has(id)){p.earned.add(id);p.score=sumarPuntos(p.score,e.boss?250:50);p.xp+=e.boss?100:30}
  if(!e.boss)return;
  if(!p.weapons.includes(level))p.weapons.push(level);
  const next=level%4+1;if(!p.armors.includes(next))p.armors.push(next);
