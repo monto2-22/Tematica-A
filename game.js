@@ -136,7 +136,7 @@ function load(n){
  if(!Number.isInteger(n)||n<0||n>niveles.length)throw new RangeError('Zona inexistente');
  nivelActual=n-1;
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
- enemies=n?spots.slice(0,zonaActual().difficulty.minions).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
+ enemies=n?crearArregloEnemigos(spots,zonaActual().difficulty.minions,foe):[];
  events=new ColaPrioridad();
  pilaDeshacer=new Pila();pilaRehacer=new Pila();
  buildObstacleGrid();buildRoutes();
