@@ -29,7 +29,7 @@ Ejecuta `node --test tests/criterios.test.cjs tests/estructuras.test.cjs` desde 
 |---|---|---|---|---|
 | Eventos del juego | Cola de prioridad / montículo | Ejecuta ataques según su hora y conserva el orden de llegada en los empates | FIFO no ordena fechas distintas | O(log N) por inserción o extracción |
 | Puntajes del jugador | Contador numérico por jugador | Actualiza el total directamente | AVL serviría para un ranking ordenado | O(1) |
-| Ruta de enemigos | Grafo (lista de adyacencia) | Dijkstra busca la ruta de menor costo y penaliza los pasos muy cercanos a obstáculos | Matriz de adyacencia necesita O(V²) de espacio | O(E log V) por búsqueda |
+| Ruta de enemigos | Grafo (lista de adyacencia) | A* busca la ruta de menor costo y penaliza los pasos muy cercanos a obstáculos | Matriz de adyacencia necesita O(V²) de espacio | O(E log V) por búsqueda |
 | Representación del mapa | Matriz dispersa | Usa Map como soporte para guardar solo las celdas con obstáculos cercanos | Matriz densa reservaría espacio para todas las celdas | Acceso a la celda O(1) esperado, más sus candidatos |
 | Inventario del jugador | Arreglo / arreglo dinámico | Permiten acceder por índice y añadir equipo al final | Lista enlazada requiere recorrer nodos para acceder por índice | O(1) por índice; O(N) para comprobar pertenencia |
 | Turnos locales y vidas | Arreglo fijo | Guarda la partida de cada jugador y accede a ella por índice | Lista circular volvería al primer jugador | O(1) |
@@ -72,3 +72,7 @@ Cada archivo contiene la implementación que usa el juego. Abre index.html despu
 - tests/criterios.test.cjs verifica CA-01 a CA-09 y la dificultad creciente.
 - tests/estructuras.test.cjs verifica estructuras durante la partida.
 - tests/entorno.cjs prepara el navegador simulado compartido por las pruebas. Cumple el papel de conftest.py en la referencia, adaptado a JavaScript.
+
+## Mediciones de A estrella
+
+Ejecuta node tests/mediciones-astar.cjs. El programa compara A* con distancia Manhattan y Dijkstra con heurística cero. Mide el tiempo medio de 300 búsquedas por algoritmo, sin incluir el dibujo ni la construcción del mapa. Reporta coordenadas, costo, pasos y nodos visitados en las cuatro cuevas.
