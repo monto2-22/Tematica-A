@@ -12,4 +12,5 @@ function run(name,code){
  console.log('OK '+name);
 }
 const begin="start(1); Object.assign(p,chest); interact(); Object.assign(p,door); interact();";
-module.exports={run,begin};
+const evaluar=(codigo)=>vm.runInContext(codigo,sandbox);
+module.exports={run,begin,evaluar};
