@@ -114,28 +114,9 @@ function findEnemyPath(enemy,target){
  const radius=enemy.r*.65;
  const start=nearbyNode(enemy,radius),goal=nearbyNode(target,radius,true);
  if(!start||!goal)return [];
- // Dijkstra: los pasos cerca de obstáculos cuestan más que los pasos despejados.
- const frontier=new ColaPrioridad(),previous=new Map([[start,null]]);
- const costs=new Map([[start,0]]);
- frontier.add(0,start);
- while(frontier.heap.length){
-  const {at:cost,run:node}=frontier.take();
-  if(cost!==costs.get(node))continue;
-  if(node===goal){
-   const path=[];
-   for(let step=goal;step;step=previous.get(step))path.push(step);
-   return path.reverse();
-  }
-  for(const neighbor of node.neighbors){
-   const nextCost=cost+CELL+(solid(neighbor.x,neighbor.y,30)?CELL*.5:0);
-   if(nextCost>=(costs.get(neighbor)??Infinity))continue;
-   costs.set(neighbor,nextCost);
-   previous.set(neighbor,node);
-   frontier.add(nextCost,neighbor);
-  }
- }
- return [];
+ return rutaMinima(start,goal,(_,neighbor)=>CELL+(solid(neighbor.x,neighbor.y,30)?CELL*.5:0));
 }
+
 function pursue(enemy,dt){
  const radius=enemy.r*.65;
  let target=p;
