@@ -1,0 +1,20 @@
+WorldCave | A* frente a Dijkstra
+Node v24.22.1 | win32 x64
+Tiempo medio de 300 búsquedas por algoritmo, sin dibujar ni generar el mapa.
+Ruta entre lados opuestos de la primera roca de cada cueva; coordenadas en píxeles.
+
+Fuego | 607 nodos en el grafo
+A*       | costo 416 | 13 pasos | 46 visitados | 0.235 ms
+Dijkstra | costo 416 | 13 pasos | 175 visitados | 0.537 ms
+
+Agua | 594 nodos en el grafo
+A*       | costo 384 | 12 pasos | 26 visitados | 0.102 ms
+Dijkstra | costo 384 | 12 pasos | 155 visitados | 0.453 ms
+
+Tierra | 599 nodos en el grafo
+A*       | costo 416 | 13 pasos | 46 visitados | 0.171 ms
+Dijkstra | costo 416 | 13 pasos | 170 visitados | 0.538 ms
+
+Viento | 590 nodos en el grafo
+A*       | costo 416 | 12 pasos | 31 visitados | 0.114 ms
+Dijkstra | costo 416 | 12 pasos | 147 visitados | 0.424 ms
