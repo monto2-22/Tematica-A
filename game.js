@@ -36,7 +36,7 @@ const spawn={x:120,y:621},chest={x:334,y:544},door={x:1124,y:130},cage={x:1124,y
 const spots=[[387,398],[575,324],[786,452],[892,252],[538,122],[672,651],[945,452]];
 const keys=new Set();let mode='menu',count=1,turn=0,results=[],p,level,enemies,shots,fx,seen,opened,drop,potion,potionAt,time=0,toast='',toastAt=0,mission='',near='',mapOn=true,cx=0,cy=0;
 let seed=1;const rand=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
-const fresh=()=>({x:spawn.x,y:spawn.y,hp:16,lives:3,score:0,xp:0,weapons:[0],armors:[],weapon:0,armor:0,earned:new Set(),dir:{x:1,y:0},cd:0,inv:0,key:false});
+const fresh=()=>({x:spawn.x,y:spawn.y,hp:16,lives:3,score:0,xp:0,...crearInventario(),weapon:0,armor:0,earned:new Set(),dir:{x:1,y:0},cd:0,inv:0,key:false});
 // Turnos locales: el arreglo tiene exactamente una o dos posiciones por partida.
 let players=[fresh()];
 // Montículo mínimo: fecha de ejecución y orden de llegada para los empates.
@@ -183,7 +183,7 @@ function enterNextLevel(){
  load(level+1);
 }
 function interact(){
- if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;pilaDeshacer=new Pila();pilaRehacer=new Pila();tell('Varita de Agua y armadura de Fuego equipadas');return}
+ if(!level&&!opened&&dist(p,chest)<67){opened=true;agregarEquipo(p.weapons,2);agregarEquipo(p.armors,1);p.weapon=2;p.armor=1;pilaDeshacer=new Pila();pilaRehacer=new Pila();tell('Varita de Agua y armadura de Fuego equipadas');return}
  if(dist(p,door)>68)return;
  if(level<4){
   try{enterNextLevel()}catch(error){if(!(error instanceof NivelBloqueadoError))throw error;tell(error.message)}
@@ -196,8 +196,8 @@ function award(e){
  const id=level+':'+e.id;
  if(!p.earned.has(id)){p.earned.add(id);p.score=sumarPuntos(p.score,e.boss?250:50);p.xp+=e.boss?100:30}
  if(!e.boss)return;
- if(!p.weapons.includes(level))p.weapons.push(level);
- const next=level%4+1;if(!p.armors.includes(next))p.armors.push(next);
+ agregarEquipo(p.weapons,level);
+ const next=level%4+1;agregarEquipo(p.armors,next);
  if(level===4){drop={x:e.x,y:e.y};tell('¡Guardián vencido! Recoge la llave dorada')}
  else {p.armor=next;pilaDeshacer=new Pila();pilaRehacer=new Pila();tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
 }
