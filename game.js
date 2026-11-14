@@ -42,12 +42,12 @@ let players=[fresh()];
 // Montículo mínimo: fecha de ejecución y orden de llegada para los empates.
 let events;
 // Pilas LIFO de cambios manuales de equipamiento. No rebobinan el combate.
-let pilaDeshacer=[],pilaRehacer=[];
+let pilaDeshacer=new Pila(),pilaRehacer=new Pila();
 function equip(slot,value){
  const items=slot==='weapon'?p.weapons:p.armors;
  if(!items.includes(value)||p[slot]===value)return;
  pilaDeshacer.push({slot,before:p[slot],after:value});
- pilaRehacer.length=0;p[slot]=value;
+ pilaRehacer.clear();p[slot]=value;
 }
 function replayEquipment(redo){
  const from=redo?pilaRehacer:pilaDeshacer,to=redo?pilaDeshacer:pilaRehacer;
@@ -158,7 +158,7 @@ function load(n){
  level=n;Object.assign(p,spawn,{dir:{x:1,y:0},key:false,cd:0,inv:0});opened=n>0;drop=null;potion=null;potionAt=time+8;shots=[];fx=[];seen=new Set();toast='';near='';
  enemies=n?spots.slice(0,zonaActual().difficulty.minions).map(([x,y],i)=>foe(x,y,i,false)).concat(foe(1082,266,99,true)):[];
  events=new ColaPrioridad();
- pilaDeshacer=[];pilaRehacer=[];
+ pilaDeshacer=new Pila();pilaRehacer=new Pila();
  buildObstacleGrid();buildRoutes();
  cx=0;cy=MH-H;discover();
 }
@@ -203,7 +203,7 @@ function enterNextLevel(){
  load(level+1);
 }
 function interact(){
- if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;pilaDeshacer=[];pilaRehacer=[];tell('Varita de Agua y armadura de Fuego equipadas');return}
+ if(!level&&!opened&&dist(p,chest)<67){opened=true;p.weapons.push(2);p.armors.push(1);p.weapon=2;p.armor=1;pilaDeshacer=new Pila();pilaRehacer=new Pila();tell('Varita de Agua y armadura de Fuego equipadas');return}
  if(dist(p,door)>68)return;
  if(level<4){
   try{enterNextLevel()}catch(error){if(!(error instanceof NivelBloqueadoError))throw error;tell(error.message)}
@@ -219,7 +219,7 @@ function award(e){
  if(!p.weapons.includes(level))p.weapons.push(level);
  const next=level%4+1;if(!p.armors.includes(next))p.armors.push(next);
  if(level===4){drop={x:e.x,y:e.y};tell('¡Guardián vencido! Recoge la llave dorada')}
- else {p.armor=next;pilaDeshacer=[];pilaRehacer=[];tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
+ else {p.armor=next;pilaDeshacer=new Pila();pilaRehacer=new Pila();tell('Arma de '+ELEM[level]+' obtenida · Descenso abierto')}
 }
 function damage(e,d){if(e.hp<=0)return;e.hp=Math.max(0,e.hp-d);e.flash=.12;sparks(e.x,e.y,COL[level],e.hp?5:17);if(!e.hp)award(e)}
 const heroLevel=()=>1+Math.floor(p.xp/80);
