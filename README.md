@@ -50,3 +50,16 @@ La superficie es el punto de partida. El arreglo fijo niveles contiene solo las 
 | Viento | 7 | 219 | 6 |
 
 En cada descenso también aumentan la salud y la velocidad de los enemigos menores, los proyectiles viajan más rápido y el tiempo para esquivarlos se reduce. El código usa el plan técnico de plan.md y las ocho estructuras de estructura.md.
+
+## Carpeta estructuras/
+
+Cada archivo contiene la implementación que usa el juego. Abre index.html después de extraer todos los archivos del ZIP.
+
+- cola-prioridad.js — montículo para eventos y búsqueda de rutas.
+- contador-puntaje.js — suma de puntos del jugador.
+- grafo-adyacencia.js — búsqueda de rutas por los vecinos transitables.
+- matriz-dispersa.js — celdas del mapa con obstáculos.
+- arreglo-inventario.js — armas y armaduras.
+- arreglo-fijo.js — jugadores y niveles.
+- arreglo-enemigos.js — enemigos de cada cueva.
+- pila.js — deshacer y rehacer cambios de equipo.
