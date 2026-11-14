@@ -9,7 +9,7 @@ Abre index.html en el navegador. No necesitas conexión ni instalación.
 
 ## 5. Criterios de aceptación
 
-Ejecuta `node criterios.test.cjs` desde la carpeta del juego. Las pruebas usan el mismo JavaScript que ejecuta el navegador.
+Ejecuta `node --test tests/criterios.test.cjs tests/estructuras.test.cjs` desde la carpeta del juego. Las pruebas usan el mismo JavaScript que ejecuta el navegador.
 
 | ID | Criterio | Verificable mediante |
 |---|---|---|
@@ -63,3 +63,12 @@ Cada archivo contiene la implementación que usa el juego. Abre index.html despu
 - arreglo-fijo.js — jugadores y niveles.
 - arreglo-enemigos.js — enemigos de cada cueva.
 - pila.js — deshacer y rehacer cambios de equipo.
+
+## Organización del proyecto
+
+- dominio/juego.js contiene las reglas de niveles, combate, vidas, turnos, inventario y rescate.
+- estructuras/ contiene los ocho módulos reutilizados por el dominio.
+- interfaz.js dibuja el juego en Canvas y conecta los controles y menús.
+- tests/criterios.test.cjs verifica CA-01 a CA-09 y la dificultad creciente.
+- tests/estructuras.test.cjs verifica estructuras durante la partida.
+- tests/entorno.cjs prepara el navegador simulado compartido por las pruebas. Cumple el papel de conftest.py en la referencia, adaptado a JavaScript.
