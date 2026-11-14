@@ -63,14 +63,13 @@ const cellKey=(col,row)=>row*Math.ceil(MW/CELL)+col;
 const positionKey=(x,y)=>cellKey(Math.floor(x/CELL),Math.floor(y/CELL));
 // Matriz dispersa: solo se crean entradas en las celdas próximas a una roca.
 function buildObstacleGrid(){
- matrizDispersa=new Map();
+ matrizDispersa=new MatrizDispersa();
  for(const rock of zonaActual().rocks){
   const [x,y,r]=rock,reach=r+MAX_RADIUS;
   for(let row=Math.floor((y-reach)/CELL);row<=Math.floor((y+reach)/CELL);row++){
    for(let col=Math.max(0,Math.floor((x-reach)/CELL));col<=Math.min(Math.ceil(MW/CELL)-1,Math.floor((x+reach)/CELL));col++){
     const key=cellKey(col,row);
-    if(!matrizDispersa.has(key))matrizDispersa.set(key,[]);
-    matrizDispersa.get(key).push(rock);
+    matrizDispersa.agregar(key,rock);
    }
   }
  }
