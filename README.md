@@ -76,3 +76,7 @@ Cada archivo contiene la implementación que usa el juego. Abre index.html despu
 ## Mediciones de A estrella
 
 Ejecuta node tests/mediciones-astar.cjs. El programa compara A* con distancia Manhattan y Dijkstra con heurística cero. Mide el tiempo medio de 300 búsquedas por algoritmo, sin incluir el dibujo ni la construcción del mapa. Reporta coordenadas, costo, pasos y nodos visitados en las cuatro cuevas.
+
+## Entrada de consola
+
+Ejecuta `python main.py` desde la carpeta del proyecto para abrir el juego 2D en el navegador. Usa `python main.py --ruta` para mostrar la dirección del archivo sin abrirlo.
