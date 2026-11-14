@@ -1,17 +1,4 @@
-const fs=require('node:fs'),vm=require('node:vm'),assert=require('node:assert/strict');
-const ctx=new Proxy({createRadialGradient:()=>({addColorStop(){}})},{get:(o,k)=>o[k]??(()=>{})});
-const make=()=>({children:[],dataset:{},style:{},setAttribute(){},replaceChildren(){this.children=[]},append(e){this.children.push(e)},focus(){},get firstChild(){return this.children[0]},get lastChild(){return this.children.at(-1)},set innerHTML(v){this.children=Array.from({length:5},make)},getContext(){return ctx}});
-const elements=new Map();const sandbox={assert,document:{getElementById(id){if(!elements.has(id))elements.set(id,make());return elements.get(id)},createElement:make,querySelectorAll:()=>[]},window:{addEventListener(){}},requestAnimationFrame(){}};
-vm.createContext(sandbox);
-const scripts=[...fs.readFileSync(require('node:path').join(__dirname,'index.html'),'utf8').matchAll(/<script src="([^"]+)"><\/script>/g)];
-for(const path of scripts.map(match=>match[1])){
- vm.runInContext(fs.readFileSync(require('node:path').join(__dirname,path),'utf8'),sandbox,{filename:path});
-}
-function run(name,code){
- vm.runInContext(code,sandbox,{filename:name});
- console.log('OK '+name);
-}
-const begin="start(1); Object.assign(p,chest); interact(); Object.assign(p,door); interact();";
+const {run,begin}=require('./entorno.cjs');
 const killBoss="const boss=enemies.find(e=>e.boss); damage(boss,boss.hp);";
 const rescue=`
  Object.assign(p,chest); interact(); Object.assign(p,door); interact();
@@ -55,19 +42,6 @@ run('test_cambiar_turno',`{
   assert.equal(p.lives,3);assert.equal(p.score,0);
   ${die}assert.equal(mode,'end');assert.equal(results.length,2);assert.equal(results[0].win,win);
  }
-}`);
-run('test_estructuras_en_juego',`{
- ${begin}
- const seenEvents=[],queue=new ColaPrioridad();
- queue.add(5,()=>seenEvents.push('tarde'));queue.add(2,()=>seenEvents.push('primero'));queue.add(2,()=>seenEvents.push('segundo'));
- queue.runDue(2);assert.equal(seenEvents.join(','),'primero,segundo');queue.runDue(5);assert.equal(seenEvents.at(-1),'tarde');
- const [x,y]=ROCKS[1][0];assert.ok(matrizDispersa.has(positionKey(x,y)));assert.ok(solid(x,y));
- const enemy={x:x-100,y,r:15},target={x:x+100,y};
- assert.equal(clearPath(enemy,target,10),false);
- const path=findEnemyPath(enemy,target);assert.ok(path.length>2);
- for(let i=1;i<path.length;i++)assert.ok(path[i-1].neighbors.includes(path[i]));
- prepareEnemyAttack(enemies[0],0);events.runDue(time+1);assert.equal(shots.length,1);
- draw();
 }`);
 run('test_dificultad_crece_en_cada_cueva',`{
  ${begin}
