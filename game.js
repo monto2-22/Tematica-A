@@ -26,8 +26,8 @@ const dificultad=[
  {minions:6,enemyHP:55,bossHP:176,speed:75,shotSpeed:244,wind:.39,recovery:1.11,spread:[-.44,-.22,0,.22,.44]},
  {minions:7,enemyHP:69,bossHP:219,speed:88,shotSpeed:282,wind:.32,recovery:.94,spread:[-.55,-.33,-.11,.11,.33,.55]}
 ];
-const niveles=Object.freeze(Z.slice(1).map((theme,index)=>Object.freeze({
- theme, rocks:ROCKS[index+1], hazards:HAZ[index+1], difficulty:Object.freeze(dificultad[index])
+const niveles=Object.freeze(crearArregloFijo(4,(_,index)=>Object.freeze({
+ theme:Z[index+1], rocks:ROCKS[index+1], hazards:HAZ[index+1], difficulty:Object.freeze(dificultad[index])
 })));
 const superficie={theme:Z[0],rocks:ROCKS[0],hazards:HAZ[0]};
 let nivelActual=-1;
@@ -149,7 +149,7 @@ function foe(x,y,id,boss){
 }
 function start(n){
  if(n!==1&&n!==2)throw new RangeError('Se requiere uno o dos jugadores');
- players=Array.from({length:n},fresh);Object.seal(players);
+ players=crearArregloFijo(n,fresh);
  count=players.length;turn=0;results=new Array(count);p=players[turn];load(0);show('play');
 }
 function tell(s){toast=s;toastAt=time+3.3}
